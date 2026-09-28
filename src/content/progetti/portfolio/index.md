@@ -6,7 +6,7 @@ tags: [Content Collections, Zod, Shiki, CSS]
 year: 2026
 summary: Il sito che stai guardando, un terminale a fosfori con una lente che mostra il codice sotto la pagina.
 screenshots: [./copertina.png]
-github: null
+github: https://github.com/Loolloo99/Loolloo99.github.io
 demo: null
 video: null
 ---
