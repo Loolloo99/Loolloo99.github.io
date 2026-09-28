@@ -1,5 +1,5 @@
 ---
-title: Sentinella, the anti-doomscrolling mascot
+title: Desktop Pet, the anti-doomscrolling mascot
 summary: A pixel art mascot that lives on your Windows and macOS desktop and, when you open a social network, runs over to close the tab.
 ---
 
@@ -10,11 +10,23 @@ It doesn't block anything on the network and doesn't read what you type: it only
 ## What it does
 
 - **Anti-doomscrolling**: recognises sites from the tab title (with blocked words and exceptions, e.g. `youtube` yes but `youtube music` no) and programs from the process name, then chases the window even if you move it
-- **A life of its own**: resting, walks across multiple monitors, flights, falls with gravity and bounces, naps, a greeting when you come back to the PC and cuddles when you hover the mouse
-- **Games**: throwing the ball, hide and seek, the trampoline (keep it in the air for two minutes while collecting dots, with a high score in the notebook) and a pencil to draw a fence for it on the screen
+- **A life of its own**: resting, walks across multiple monitors, flights, falls with gravity and bounces, naps, a greeting when you come back to the PC, cuddles when you hover the mouse and a dedicated face for when it settles down to write too
+- **Games**: throwing the ball (the ones that can fly chase it through the air), hide and seek, the trampoline (keep it in the air for two minutes while collecting dots, with a high score) and a pencil to draw a fence for it on the screen
 - **Allowed time**: a few minutes of social media per day before it steps in, timed breaks and "do not disturb" in full screen
-- **Notebook** with the week's statistics: time on social media, chases, closed tabs, most visited sites
+- **Dashboard** with the week's statistics: time on social media day by day, chases, closed tabs, most visited sites, plus ball throws, walks, metres covered and breaks
+- **Notebook**: a **Markdown** note editor, with search, syntax that colours itself as you type, and a preview
+- **Friends on the network**: Sentinelle on the same local network find each other and pay each other a visit
+- **How the computer is doing**: CPU, RAM and temperature, with limits past which the mascot comes over to warn you
+- **Motivational quotes** now and then, in the voice of whichever mascot you imported
 - **Events and reminders**, with a speech bubble and a dedicated sound
+
+## The mascot goes to visit its friends
+
+With visibility on, the Sentinelle on the same local network find each other by themselves. Pick a mascot from the list, write a message, and at the other end a card appears: *"Pippo wants to drop by and say hello to Ugo. Will you let it in?"*. If they say yes, your mascot **walks off the edge of your screen** and only once it is fully out does it appear on your friend's: it arrives on foot at its own walking speed, stops next to the resident mascot, the two greet each other, it delivers the message and then leaves. It can also carry a note from the notebook, which lands among the other person's notes with the sender's name on it.
+
+![The Friends page: the Sentinelle found on the network, with the message to send](./impostazioni-amici.png)
+
+Underneath there's a UDP beacon broadcast every three seconds so they can be found, and a TCP connection with one JSON per line for the greeting; the greeting and walking faces travel as base64 PNGs. Since nobody authenticates, the protocol is written assuming anyone at all could be on the other end: images are only sent after the recipient says yes, lines have a ceiling, frames are counted and checked one by one (PNG only, signature verified before handing them to Qt), the name and message are stripped of control characters and bidi tricks, and a "doorkeeper" accepts one invitation per sender per minute. With visibility off, no socket stays open.
 
 ## Fully customisable
 
@@ -32,13 +44,19 @@ With **New mascot** you can create one from scratch: name, whether it can fly, f
 
 ## Ready-made profiles
 
-A whole mascot (settings, phrases, images and sounds) fits in a single `.sentinella` file to export, share with someone or import again. Besides the default **black cat** there are already a **sloth** and a **red dragon**, each with its own sprites and sounds.
+A whole mascot (settings, phrases, images and sounds) fits in a single `.sentinella` file to export, share with someone or import again. Besides the default **black cat** there are four more: a very slow **sloth**, a **red dragon**, a **panda** that rolls instead of walking and a **St Bernard**, each with its own sprites, sounds and phrases.
 
-![The three available mascots: black cat, sloth and red dragon](./mascotte.png)
+![The five ready-made mascots: black cat, sloth, red dragon, panda and St Bernard](./mascotte.png)
 
 ![The Profiles page with the ready-made profiles](./impostazioni-profili.png)
 
+A profile can also be exported outside the folder — to the Desktop, a USB stick, a shared folder — and one picked up elsewhere can be added, going through the same checks before it is copied in.
+
 The import treats the file as untrusted content: an allowlist of permitted paths, no `..` traversal or executables, explicit confirmation and a backup before overwriting.
+
+## Italian and English
+
+The app speaks two languages: by default it follows the system one, and it switches on the spot without restarting. The strings, though, stay written **in Italian in the code**, inside `tr()`: the Italian is the key and a catalogue says how it goes in English, so the code reads as it did before and a string without a translation yet comes out in Italian instead of breaking something. A test re-reads the source without running it and fails if a `tr()` has no entry in the catalogue, or if the catalogue still holds translations nobody uses any more.
 
 ## Windows and macOS, same code
 
@@ -53,10 +71,12 @@ On a Mac a few details change: the icon lives in the menu bar, the tab is closed
 - **PySide6 (Qt)** for the transparent borderless windows, the animations and the whole interface, drawn with a consistent dark theme and vector icons
 - A **`piattaforma/`** package with the shared contract and one backend per OS, so the logic can be imported and tested anywhere
 - **Win32 API via `ctypes`** on Windows to enumerate windows, read titles and processes, find the close button and simulate clicks and `Ctrl+W`, handling DPI and multiple monitors
-- **Quartz, AppKit, Accessibility and AVFoundation via PyObjC** on macOS, with no private APIs that would break at every system update
+- **Quartz, AppKit, Accessibility, Carbon and AVFoundation via PyObjC** on macOS, with no private APIs that would break at every system update — the one exception is the temperature sensors, undocumented but read the same way by monitoring tools for years now
+- **QtNetwork** for the greetings between Sentinelle: same code on both platforms, outside `piattaforma/`
+- **psutil** for CPU and RAM, read on a separate thread because on Windows the temperature goes through PowerShell and costs a good second
 - **Pixel art** sprites generated in code with `QPainter`, one script per mascot
 - An interface that follows Windows scaling (100%–200%) with an extra preference for text and mascots
 - Packaged with PyInstaller as **`Sentinella.exe`** on Windows and **`Sentinella.app` / `.dmg`** on Mac, or installed with a per-OS script that sets up Python, the virtual environment and auto-start
 - **GitHub Actions** runs the tests on Windows and macOS on every push, builds the `.dmg` and, for each version, publishes the `.exe` and `.dmg` in a release
 
-> The video at the top is an animation rebuilt with the app's real sprites. The settings screens are captured from the application (in Italian).
+> The video at the top is an animation: the desktop, the taskbar and the browser window are drawn, while the mascot and the app's own windows are the real thing. The screenshots are captured from the application (in Italian).
