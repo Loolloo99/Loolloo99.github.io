@@ -2,6 +2,7 @@
 import { getImage, Image } from "astro:assets";
 import { render } from "astro:content";
 import CodePreview from "../components/CodePreview.astro";
+import Gallery from "../components/Gallery.astro";
 import Icon from "../components/Icon.astro";
 import { getLanguage, SITE } from "../config";
 import { LOCALES, localeUrl, useTranslations } from "../i18n/ui";
@@ -252,20 +253,7 @@ const shortUrl = (href: string) => href.replace(/^https?:\/\/(www\.)?/, "").repl
         gallery.length > 0 && (
           <section class="shots" aria-labelledby="shots-title">
             <h2 class="eyebrow" id="shots-title">{t("project.moreShots")}</h2>
-            <div class="shots__grid" data-each="gallery" data-as="shot">
-              {gallery.map((shot, i) => (
-                <a class="shots__item" href={galleryFull[i]} {...external} data-bind-href="shot.src">
-                  <Image
-                    src={shot}
-                    alt={t("project.shotN", { n: i + 2, title: data.title })}
-                    widths={[600, 1100]}
-                    sizes="(max-width: 960px) 100vw, 550px"
-                    data-bind-src="shot.src"
-                    data-bind-alt="title"
-                  />
-                </a>
-              ))}
-            </div>
+            <Gallery shots={gallery} full={galleryFull} title={data.title} lang={lang} />
           </section>
         )
       }

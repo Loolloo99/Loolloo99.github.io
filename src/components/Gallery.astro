@@ -1,0 +1,155 @@
+---
+/*
+ * Gli screenshot di un progetto: miniature tutte della stessa misura, e un
+ * visore che apre l'immagine intera sopra la pagina.
+ *
+ * Le miniature usano `object-fit: contain`, non `cover`: i progetti mescolano
+ * scene 16:9 e finestre verticali, e ritagliarle per farle combaciare
+ * taglierebbe via proprio quello che c'è da vedere. Meglio una fascia di
+ * sfondo intorno.
+ *
+ * Senza JavaScript il collegamento resta quello di prima e apre l'immagine in
+ * una scheda nuova: il visore è un di più, non un requisito.
+ */
+import type { ImageMetadata } from "astro";
+import { Image } from "astro:assets";
+import Icon from "./Icon.astro";
+import type { Lang } from "../i18n/ui";
+import { useTranslations } from "../i18n/ui";
+
+interface Props {
+  shots: ImageMetadata[];
+  /** gli stessi screenshot a piena grandezza, in WebP */
+  full: string[];
+  title: string;
+  lang: Lang;
+  /** da che numero contare: la copertina è la 1, la galleria comincia dalla 2 */
+  from?: number;
+}
+
+const { shots, full, title, lang, from = 2 } = Astro.props;
+const t = useTranslations(lang);
+const numero = (i: number) => String(i + from).padStart(2, "0");
+---
+
+<div class="gallery" data-gallery>
+  <div class="gallery__grid" data-each="gallery" data-as="shot">
+    {
+      shots.map((shot, i) => (
+        <a
+          class="gallery__item"
+          href={full[i]}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={t("gallery.open")}
+          data-full={full[i]}
+          data-bind-href="shot.src"
+        >
+          <Image
+            src={shot}
+            alt={t("project.shotN", { n: i + from, title })}
+            widths={[320, 640]}
+            sizes="(max-width: 560px) 45vw, 260px"
+            data-bind-src="shot.src"
+            data-bind-alt="title"
+          />
+          <span class="gallery__n" aria-hidden="true">{numero(i)}</span>
+        </a>
+      ))
+    }
+  </div>
+
+  <dialog class="lightbox" aria-label={t("gallery.viewer")}>
+    <div class="lightbox__bar">
+      <span class="lightbox__count" data-count />
+      <button type="button" class="lightbox__close" data-close>
+        <span aria-hidden="true">[ESC]</span>
+        <span class="sr-only">{t("gallery.close")}</span>
+      </button>
+    </div>
+
+    <figure class="lightbox__stage">
+      <img data-img alt="" decoding="async" />
+    </figure>
+
+    <button type="button" class="lightbox__nav lightbox__nav--prev" data-step="-1">
+      <Icon name="back" />
+      <span class="sr-only">{t("gallery.prev")}</span>
+    </button>
+    <button type="button" class="lightbox__nav lightbox__nav--next" data-step="1">
+      <Icon name="arrow" />
+      <span class="sr-only">{t("gallery.next")}</span>
+    </button>
+  </dialog>
+</div>
+
+<script>
+  /*
+   * Il visore è un <dialog> vero: showModal() dà gratis la trappola del fuoco,
+   * Esc che chiude e il resto della pagina inerte, senza riscriverlo a mano.
+   */
+  interface Voce {
+    src: string;
+    alt: string;
+  }
+
+  document.querySelectorAll<HTMLElement>("[data-gallery]").forEach((radice) => {
+    const dialog = radice.querySelector("dialog");
+    const img = radice.querySelector<HTMLImageElement>("[data-img]");
+    const conta = radice.querySelector<HTMLElement>("[data-count]");
+    const link = [...radice.querySelectorAll<HTMLAnchorElement>("a[data-full]")];
+    if (!dialog || !img || !conta || link.length === 0) return;
+
+    const voci: Voce[] = link.map((a) => ({
+      src: a.dataset.full!,
+      alt: a.querySelector("img")?.alt ?? "",
+    }));
+    const posizione = dialog.getAttribute("aria-label") ?? "";
+    let quale = 0;
+
+    /** Le vicine si caricano prima che servano: così sfogliare non aspetta */
+    const precarica = (i: number) => {
+      const voce = voci.at(i % voci.length);
+      if (voce) new Image().src = voce.src;
+    };
+
+    const mostra = (i: number) => {
+      quale = (i + voci.length) % voci.length;
+      img.src = voci[quale].src;
+      img.alt = voci[quale].alt;
+      conta.textContent = `${String(quale + 1).padStart(2, "0")} / ${String(voci.length).padStart(2, "0")}`;
+      dialog.setAttribute("aria-label", `${posizione} — ${quale + 1}/${voci.length}`);
+      precarica(quale + 1);
+      precarica(quale - 1);
+    };
+
+    link.forEach((a, i) =>
+      a.addEventListener("click", (event) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+        event.preventDefault();
+        mostra(i);
+        dialog.showModal();
+      }),
+    );
+
+    radice.querySelectorAll<HTMLButtonElement>("[data-step]").forEach((b) =>
+      b.addEventListener("click", () => mostra(quale + Number(b.dataset.step))),
+    );
+    radice.querySelector("[data-close]")?.addEventListener("click", () => dialog.close());
+
+    /* Un clic fuori dall'immagine chiude: il <dialog> riceve i clic sul backdrop */
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+
+    dialog.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowRight") mostra(quale + 1);
+      else if (event.key === "ArrowLeft") mostra(quale - 1);
+      else return;
+      event.preventDefault();
+    });
+
+    /* Il fuoco torna alla miniatura da cui si era partiti */
+    dialog.addEventListener("close", () => link[quale]?.focus({ preventScroll: true }));
+  });
+</script>

@@ -890,19 +890,133 @@ code { font-family: var(--font-mono); font-size: .9em; }
 
 /* Altri screenshot */
 .shots { margin-top: 64px; }
-.shots__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
-  gap: 20px;
+/* Solo per chi legge con la sintesi vocale */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
-.shots__item {
+
+/* Miniature tutte uguali: "contain" e non "cover", perche' i progetti
+   mescolano scene 16:9 e finestre verticali e il ritaglio mangerebbe
+   proprio quello che c'e' da guardare. */
+.gallery__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(45%, 240px), 1fr));
+  gap: 12px;
+}
+.gallery__item {
+  position: relative;
   display: block;
+  aspect-ratio: 4 / 3;
   overflow: hidden;
   border: 1px solid var(--border-strong);
   background: var(--code-bg);
 }
-.shots__item:hover { border-color: var(--accent); }
-.shots__item img { width: 100%; }
+.gallery__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.gallery__item:hover,
+.gallery__item:focus-visible { border-color: var(--accent); }
+.gallery__n {
+  position: absolute;
+  top: 0; left: 0;
+  padding: 2px 7px;
+  background: var(--bg);
+  border-right: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.gallery__item:hover .gallery__n { color: var(--accent); }
+
+/* Il visore */
+.lightbox {
+  /* inset invece di 100vw/100dvh: 100vw comprende la barra di scorrimento,
+     e i 10px della freccia destra finivano fuori dalla parte visibile */
+  inset: 0;
+  width: auto;
+  max-width: none;
+  height: auto;
+  max-height: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  overflow: hidden;
+}
+.lightbox::backdrop { background: rgb(0 0 0 / .86); }
+.lightbox__bar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.lightbox__count {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+}
+.lightbox__close {
+  padding: 4px 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.lightbox__close:hover { border-color: var(--accent); color: var(--accent); }
+.lightbox__stage {
+  display: grid;
+  /* una riga con misura definita: senza, la riga e' automatica, il
+     max-height percentuale dell'immagine non si risolve e la foto sborda */
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+  height: 100%;
+  margin: 0;
+  padding: 52px 64px 28px;
+}
+/* Niente ritagli: l'immagine sta tutta dentro a quello che resta dello schermo */
+.lightbox__stage img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  border: 1px solid var(--border-strong);
+}
+.lightbox__nav {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  display: grid;
+  place-items: center;
+  width: 40px; height: 56px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+.lightbox__nav:hover { border-color: var(--accent); color: var(--accent); }
+.lightbox__nav--prev { left: 10px; }
+.lightbox__nav--next { right: 10px; }
+
+@media (max-width: 560px) {
+  .lightbox__stage { padding: 48px 12px 60px; }
+  .lightbox__nav { top: auto; bottom: 10px; translate: none; width: 56px; height: 36px; }
+}
 
 /* Progetto precedente / successivo */
 .pager {
