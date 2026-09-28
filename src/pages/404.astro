@@ -1,0 +1,35 @@
+---
+/* Gli hosting statici servono un unico 404.html per tutte le lingue: il testo è in entrambe */
+import { localeUrl, useTranslations } from "../i18n/ui";
+import Base from "../layouts/Base.astro";
+
+const it = useTranslations("it");
+const en = useTranslations("en");
+---
+
+<Base
+  lang="it"
+  title={`${it("notfound.title")} · ${en("notfound.title")}`}
+  description={it("notfound.lead")}
+  source="pages/404.astro"
+>
+  <section class="section notfound">
+    <div class="container">
+      <p class="eyebrow">Errore 404 · Error 404</p>
+      <h2>{it("notfound.title")}</h2>
+      <p class="section__lead">{it("notfound.lead")}</p>
+      <div class="actions notfound__actions">
+        <a class="btn btn--primary" href={localeUrl("it")}>{it("notfound.home")}</a>
+        <a class="btn" href={`${localeUrl("it")}#progetti`}>{it("home.seeProjects")}</a>
+      </div>
+      <div lang="en">
+        <h2>{en("notfound.title")}</h2>
+        <p class="section__lead">{en("notfound.lead")}</p>
+        <div class="actions notfound__actions">
+          <a class="btn btn--primary" href={localeUrl("en")}>{en("notfound.home")}</a>
+          <a class="btn" href={`${localeUrl("en")}#progetti`}>{en("home.seeProjects")}</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>

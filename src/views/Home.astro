@@ -1,0 +1,368 @@
+---
+import Icon from "../components/Icon.astro";
+import ProjectCard from "../components/ProjectCard.astro";
+import { LANGUAGES, SITE, type Language } from "../config";
+import { countProjects, LOCALES, localeUrl, useTranslations, type Lang } from "../i18n/ui";
+import Base from "../layouts/Base.astro";
+import { profileCode } from "../lib/code";
+import type { IconName } from "../lib/icons";
+import { getProjects, primaryLanguage } from "../lib/projects";
+import { url } from "../lib/url";
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const alternates = Object.fromEntries(LOCALES.map((code) => [code, localeUrl(code)]));
+
+const projects = await getProjects(lang);
+/** Progetti che usano un linguaggio: prima quelli in cui è il principale, poi gli altri */
+const projectsOf = (id: string) => [
+  ...projects.filter((p) => primaryLanguage(p) === id),
+  ...projects.filter((p) => primaryLanguage(p) !== id && p.data.languages.includes(id)),
+];
+const primaryCount = (id: string) => projects.filter((p) => primaryLanguage(p) === id).length;
+const activeLanguages = LANGUAGES.filter((l) => projectsOf(l.id).length > 0);
+const plural = (n: number) => countProjects(lang, n);
+
+/**
+ * Framework di un linguaggio usati dai suoi progetti, nell'ordine di src/config.ts.
+ * In un progetto Laravel + React, Laravel va sotto PHP e React sotto JavaScript;
+ * i framework non associati a nessun linguaggio compaiono ovunque siano usati.
+ */
+const mappedFrameworks = new Set(LANGUAGES.flatMap((l) => l.frameworks));
+const frameworksOf = (language: Language) => {
+  const used = new Set(projectsOf(language.id).flatMap((p) => p.data.frameworks));
+  return [...language.frameworks.filter((f) => used.has(f)), ...[...used].filter((f) => !mappedFrameworks.has(f))];
+};
+
+const profile = profileCode({
+  role: SITE.role[lang],
+  location: SITE.location[lang],
+  languages: LANGUAGES.map((l) => l.name),
+  frameworks: [...new Set(LANGUAGES.flatMap((l) => l.frameworks))],
+  ai: SITE.ai,
+  projects: projects.length,
+}, {
+  file: t("code.file"),
+  role: t("code.role"),
+  location: t("code.location"),
+  languages: t("code.languages"),
+  projects: t("code.projects"),
+});
+
+const social: { href: string; label: string; icon: IconName }[] = [];
+if (SITE.github) social.push({ href: SITE.github, label: "GitHub", icon: "github" });
+if (SITE.linkedin) social.push({ href: SITE.linkedin, label: "LinkedIn", icon: "linkedin" });
+if (SITE.cv) social.push({ href: /^https?:/.test(SITE.cv) ? SITE.cv : url(SITE.cv), label: t("home.cv"), icon: "file" });
+
+const external = { target: "_blank", rel: "noopener noreferrer" };
+
+/** Bio con i nomi di linguaggi e framework in evidenza */
+const ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
+const escapeHtml = (text: string) => text.replace(/[&<>"]/g, (c) => ESCAPES[c]);
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const keywords = [...new Set([...LANGUAGES.map((l) => l.name), ...LANGUAGES.flatMap((l) => l.frameworks), ...SITE.ai])];
+const bioHtml = keywords.reduce(
+  (html, word) => html.replace(new RegExp(`\\b${escapeRegExp(word)}\\b`, "g"), `<strong class="hl">${escapeHtml(word)}</strong>`),
+  escapeHtml(SITE.bio[lang]),
+);
+---
+
+<Base
+  lang={lang}
+  alternates={alternates}
+  title={`${SITE.name} · ${SITE.role[lang]}`}
+  description={SITE.bio[lang]}
+  source="views/Home.astro"
+>
+  <!-- Hero -->
+  <section class="hero" id="top">
+    <div class="container hero__grid">
+      <div class="hero__intro">
+        <h1 class="hero__name">{SITE.name}</h1>
+        <p class="hero__role">{SITE.role[lang]}</p>
+        <p class="hero__bio" set:html={bioHtml}></p>
+        <p class="hero__langs">{LANGUAGES.map((l) => l.name).join(" · ")}</p>
+        {SITE.available && <p class="badge"><span class="badge__dot"></span>{t("home.available")}</p>}
+        <div class="actions">
+          <a class="btn btn--primary" href="#progetti">{t("home.seeProjects")}<Icon name="arrow" /></a>
+          {social.map((s) => <a class="btn" href={s.href} {...external}><Icon name={s.icon} />{s.label}</a>)}
+        </div>
+      </div>
+      <div class="window hero__window" aria-hidden="true">
+        <div class="window__bar">
+          <span class="window__dots"><i></i><i></i><i></i></span>
+          <span class="window__title">~/portfolio</span>
+        </div>
+        <pre class="code" set:html={profile}></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stack -->
+  <section class="section" id="stack">
+    <div class="container">
+      <div class="section__head">
+        <h2>Stack</h2>
+        <p class="section__lead">{t("home.stackLead")}</p>
+      </div>
+      <ol class="stack">
+        {
+          LANGUAGES.map((l, i) => {
+            const count = projectsOf(l.id).length;
+            return (
+              <li class="stack__row" style={`--c:${l.color}`}>
+                <span class="stack__rank">{String(i + 1).padStart(2, "0")}</span>
+                <span class="stack__lang">
+                  <span class="dot" />
+                  {l.name}
+                  <span class="stack__ext">{l.ext}</span>
+                </span>
+                <span class="stack__fw">
+                  {l.frameworks.length > 0 ? (
+                    <ul class="chips">{l.frameworks.map((f) => <li class="chip chip--strong">{f}</li>)}</ul>
+                  ) : (
+                    <span class="stack__none">—</span>
+                  )}
+                </span>
+                {count > 0 ? (
+                  <a class="stack__link" href={`#progetti/${l.id}`} data-goto={l.id}>
+                    {plural(count)}
+                    <Icon name="arrow" />
+                  </a>
+                ) : (
+                  <span class="stack__none">{t("home.noProjects")}</span>
+                )}
+              </li>
+            );
+          })
+        }
+      </ol>
+      {
+        SITE.ai.length > 0 && (
+          <ul class="stack stack--ai" aria-label={t("home.aiTools")}>
+            <li class="stack__row">
+              <span class="stack__rank">AI</span>
+              <span class="stack__lang">{t("home.aiTools")}</span>
+              <span class="stack__fw">
+                <ul class="chips">{SITE.ai.map((t) => <li class="chip chip--strong">{t}</li>)}</ul>
+              </span>
+              <span class="stack__none">{t("home.aiUse")}</span>
+            </li>
+          </ul>
+        )
+      }
+    </div>
+  </section>
+
+  <!-- Progetti -->
+  <section class="section" id="progetti">
+    <div class="container">
+      <div class="section__head">
+        <h2>{t("nav.projects")}</h2>
+        <p class="section__lead">{t("home.projectsLead")}</p>
+      </div>
+
+      {
+        projects.length === 0 ? (
+          <p class="empty">
+            {t("home.empty")} <code>src/content/progetti/</code>.
+          </p>
+        ) : (
+          <>
+            <div class="tabs" id="tabs" role="tablist" aria-label={t("home.languages")} hidden>
+              <button type="button" role="tab" class="tab" id="tab-all" data-lang="all" aria-selected="true" aria-controls="projects-panel">
+                <span>{t("home.all")}</span>
+                <span class="tab__count">{projects.length}</span>
+              </button>
+              {activeLanguages.map((l) => (
+                <button
+                  type="button"
+                  role="tab"
+                  class="tab"
+                  id={`tab-${l.id}`}
+                  data-lang={l.id}
+                  aria-selected="false"
+                  aria-controls="projects-panel"
+                  tabindex="-1"
+                  style={`--c:${l.color}`}
+                >
+                  <span class="dot" />
+                  <span>{l.name}</span>
+                  <span class="tab__count">{projectsOf(l.id).length}</span>
+                </button>
+              ))}
+            </div>
+
+            <div id="projects-panel">
+              {activeLanguages.map((l) => {
+                const list = projectsOf(l.id);
+                const primary = primaryCount(l.id);
+                const frameworks = frameworksOf(l);
+                return (
+                  <section
+                    class="group"
+                    data-lang={l.id}
+                    style={`--c:${l.color}`}
+                    aria-labelledby={`group-${l.id}`}
+                    hidden={primary === 0}
+                  >
+                    <div class="group__head">
+                      <h3 class="group__title" id={`group-${l.id}`}>
+                        <span class="dot" />
+                        {l.name}
+                        <span class="group__ext">{l.ext}</span>
+                      </h3>
+                      <span class="group__count" data-primary={plural(primary)} data-total={plural(list.length)}>
+                        {plural(primary)}
+                      </span>
+                      <span class="group__line" />
+                      <a class="group__more" href={`#progetti/${l.id}`} data-goto={l.id}>
+                        {t("home.only")} {l.name}
+                        <Icon name="arrow" />
+                      </a>
+                    </div>
+                    {frameworks.length > 1 && (
+                      <div class="filters" role="group" aria-label={t("home.filterBy", { lang: l.name })} data-filters hidden>
+                        <span class="filters__label">framework:</span>
+                        <button type="button" class="filter" data-fw="all" aria-pressed="true">{t("home.all")}</button>
+                        {frameworks.map((f) => (
+                          <button type="button" class="filter" data-fw={f} aria-pressed="false">{f}</button>
+                        ))}
+                      </div>
+                    )}
+                    <div class="grid">
+                      {list.map((project, i) => (
+                        <ProjectCard project={project} index={i + 1} secondary={primaryLanguage(project) !== l.id} />
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          </>
+        )
+      }
+    </div>
+  </section>
+
+  <!-- Contatti -->
+  <section class="section contact" id="contatti">
+    <div class="container">
+      <h2>{t("home.contactTitle")}</h2>
+      <p class="section__lead">{t("home.contactLead")}</p>
+      {SITE.email && <a class="contact__email" href={`mailto:${SITE.email}`}>{SITE.email}</a>}
+      <div class="actions">
+        {social.map((s) => <a class="btn" href={s.href} {...external}><Icon name={s.icon} />{s.label}</a>)}
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  // Schede per linguaggio e filtri per framework (senza JavaScript si vedono tutti i progetti)
+  const tabs = document.querySelector<HTMLElement>("#tabs");
+  const panel = document.querySelector<HTMLElement>("#projects-panel");
+  const section = document.getElementById("progetti");
+
+  if (tabs && panel && section) {
+    const buttons = [...tabs.querySelectorAll<HTMLButtonElement>(".tab")];
+    const groups = [...panel.querySelectorAll<HTMLElement>(".group")];
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    tabs.hidden = false;
+    panel.setAttribute("role", "tabpanel");
+
+    let current = "all";
+
+    /** Mostra le card del gruppo per il framework scelto; restituisce quante sono visibili */
+    const showFramework = (group: HTMLElement, framework: string) => {
+      group.querySelectorAll<HTMLElement>("[data-fw]").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.fw === framework));
+      });
+      let visible = 0;
+      group.querySelectorAll<HTMLElement>(".card").forEach((card) => {
+        const frameworks = (card.dataset.frameworks ?? "").split("|");
+        // In "Tutti" ogni progetto compare una sola volta, nel gruppo del suo linguaggio principale
+        const show =
+          (current !== "all" || !card.hasAttribute("data-secondary")) &&
+          (framework === "all" || frameworks.includes(framework));
+        card.hidden = !show;
+        if (show) visible++;
+      });
+      const count = group.querySelector<HTMLElement>(".group__count");
+      if (count) count.textContent = (current === "all" ? count.dataset.primary : count.dataset.total) ?? "";
+      return visible;
+    };
+
+    const selectLanguage = (lang: string, { scroll = false, updateHash = true } = {}) => {
+      if (lang !== "all" && !groups.some((g) => g.dataset.lang === lang)) lang = "all";
+      current = lang;
+
+      buttons.forEach((button) => {
+        const selected = button.dataset.lang === lang;
+        button.setAttribute("aria-selected", String(selected));
+        button.tabIndex = selected ? 0 : -1;
+        if (selected) tabs.scrollTo({ left: button.offsetLeft - 16, behavior: reducedMotion ? "auto" : "smooth" });
+      });
+      panel.setAttribute("aria-labelledby", `tab-${lang}`);
+
+      groups.forEach((group) => {
+        const filters = group.querySelector<HTMLElement>("[data-filters]");
+        if (filters) filters.hidden = lang === "all";
+        const more = group.querySelector<HTMLElement>(".group__more");
+        if (more) more.hidden = lang !== "all";
+        const visible = showFramework(group, "all");
+        group.hidden = (lang !== "all" && group.dataset.lang !== lang) || visible === 0;
+      });
+
+      if (updateHash) history.replaceState(null, "", lang === "all" ? "#progetti" : `#progetti/${lang}`);
+      if (scroll) section.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth" });
+    };
+
+    document.addEventListener("click", (event) => {
+      const target = event.target as Element;
+
+      const goto = target.closest<HTMLElement>("[data-goto]");
+      if (goto) {
+        event.preventDefault();
+        selectLanguage(goto.dataset.goto ?? "all", { scroll: true });
+        return;
+      }
+
+      const tab = target.closest<HTMLElement>("#tabs .tab");
+      if (tab) {
+        selectLanguage(tab.dataset.lang ?? "all");
+        return;
+      }
+
+      const filter = target.closest<HTMLElement>("[data-fw]");
+      const group = filter?.closest<HTMLElement>(".group");
+      if (filter && group) showFramework(group, filter.dataset.fw ?? "all");
+    });
+
+    tabs.addEventListener("keydown", (event) => {
+      const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+      if (index < 0) return;
+      const keys: Record<string, number> = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: buttons.length - 1 };
+      if (!(event.key in keys)) return;
+      event.preventDefault();
+      const next = buttons[(keys[event.key] + buttons.length) % buttons.length];
+      next.focus();
+      selectLanguage(next.dataset.lang ?? "all");
+    });
+
+    // Link diretti a un linguaggio, es. /#progetti/python
+    const applyHash = () => {
+      const match = decodeURIComponent(location.hash).match(/^#progetti\/(.+)$/);
+      if (!match) return;
+      selectLanguage(match[1], { updateHash: false });
+      section.scrollIntoView();
+    };
+    window.addEventListener("hashchange", applyHash);
+    applyHash();
+  }
+</script>

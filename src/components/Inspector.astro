@@ -1,0 +1,522 @@
+---
+/*
+ * Modalità "inspect code": il cursore diventa una lente d'ingrandimento sul codice sotto la pagina.
+ * Si attiva dal pulsante nella barra o con il tasto I, si esce con Esc, + e − cambiano la lente.
+ * - In home: il markup HTML reale, con il file sorgente preso da data-inspect.
+ * - Nelle pagine progetto: lo stesso markup nel template del framework del progetto
+ *   (dialetto indicato da data-inspect-dialect su <main>, vedi src/lib/inspect/).
+ * Ogni blocco è grande come il suo elemento e mostra sempre tutto il codice: il carattere
+ * si riduce finché ci sta, e la lente ingrandisce per renderlo leggibile.
+ */
+import { useTranslations, type Lang } from "../i18n/ui";
+
+interface Props {
+  lang: Lang;
+}
+
+const t = useTranslations(Astro.props.lang);
+---
+
+<div class="xray" aria-hidden="true" hidden>
+  <div class="xray__page"></div>
+  <div class="xray__fixed"></div>
+</div>
+
+<div class="lens" aria-hidden="true" hidden>
+  <span class="lens__ring"></span>
+  <span class="lens__handle"></span>
+  <span class="lens__hud"></span>
+</div>
+
+<div class="inspect-pill" role="status" hidden>
+  <span class="inspect-pill__dot"></span>
+  {t("inspect.active")}
+  <span class="inspect-pill__lang" data-prefix={t("inspect.version")} hidden></span>
+  <span class="inspect-pill__hint"><kbd>+</kbd><kbd>−</kbd> {t("inspect.lens")}</span>
+  <button type="button" class="inspect-pill__exit" data-inspect-exit>{t("inspect.exit")} <kbd>Esc</kbd></button>
+</div>
+
+<script>
+  import { DIALECTS, esc } from "../lib/inspect/dialects";
+  import {
+    cobolLabel,
+    htmlOpenTag,
+    serializeCobol,
+    serializeHtml,
+    serializeTemplate,
+    templateOpenTag,
+  } from "../lib/inspect/serialize";
+
+  interface Area {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  }
+
+  interface Block extends Area {
+    el: Element;
+    fixed: boolean;
+  }
+
+  interface Leaf extends Block {
+    html: string;
+    font: number;
+  }
+
+  /** Esito della visita di un contenitore: normale, diventato un blocco unico, o da unire al contenitore sopra */
+  type Visit = "done" | "merged" | "escalate";
+
+  const root = document.documentElement;
+  const toggle = document.querySelector<HTMLButtonElement>("#inspect-toggle");
+  const xray = document.querySelector<HTMLElement>(".xray");
+  const lens = document.querySelector<HTMLElement>(".lens");
+  const pill = document.querySelector<HTMLElement>(".inspect-pill");
+
+  if (toggle && xray && lens && pill) {
+    const pageLayer = xray.querySelector<HTMLElement>(".xray__page")!;
+    const fixedLayer = xray.querySelector<HTMLElement>(".xray__fixed")!;
+    const hud = lens.querySelector<HTMLElement>(".lens__hud")!;
+    const pillLang = pill.querySelector<HTMLElement>(".inspect-pill__lang")!;
+
+    /** Ingrandimento della lente: il livello del codice è disegnato a scala 1 e ingrandito */
+    const ZOOM = 2;
+    const RADIUS = { min: 70, max: 210, step: 20 };
+    /** Carattere dei blocchi (a scala 1): si riduce fino al minimo finché il codice ci sta */
+    const FONT = { max: 10, min: 4 };
+    /** Devono corrispondere a .xray__leaf nel CSS: interlinea e padding (in em, somma dei due lati) */
+    const LEAF_LINE_HEIGHT = 1.3;
+    const LEAF_PADDING = { x: 0.9, y: 0.6 };
+    /** Devono corrispondere a .xray__tag nel CSS */
+    const LABEL_FONT = 6;
+    const LABEL_HEIGHT = 10;
+    const LABEL_MAX_WIDTH = 280;
+    /** Elementi dell'inspector stesso, da non rappresentare */
+    const OWN = ".xray, .lens, .inspect-pill, #inspect-toggle";
+    const SKIP = "script, style, template, noscript, .xray, .lens, .inspect-pill";
+    /** Elementi mostrati come codice completo */
+    const LEAF =
+      "h1, h2, h3, h4, p, a, button, img, svg, pre, dt, dd, li.chip, .dot, .meta, .badge, .window__dots, .window__title";
+    /** Nelle pagine progetto anche cicli, HTML e parziali sono un blocco unico */
+    const TEMPLATE_LEAF = "[data-each], [data-bind-html], [data-include]";
+    /** Contenitori mostrati come riquadro con il tag di apertura */
+    const BOX =
+      "header, footer, section, article, aside, figure, nav, ol, .window, .card__body, .stack__row, .group__head, .hero__intro, .project__head, .tabs, .filters";
+
+    // Dialetto della pagina (solo pagine progetto)
+    const main = document.querySelector<HTMLElement>("main[data-inspect-dialect]");
+    const dialect = main ? DIALECTS[main.dataset.inspectDialect ?? ""] : undefined;
+    const accent = main?.dataset.inspectColor;
+    if (dialect) {
+      pillLang.textContent = `${pillLang.dataset.prefix} ${dialect.label}`;
+      pillLang.hidden = false;
+      if (accent) {
+        xray.style.setProperty("--x-accent", accent);
+        lens.style.setProperty("--lens-accent", accent);
+        lens.classList.add("lens--lang");
+      }
+    }
+
+    const fineHover = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    let active = false;
+    let dirty = true;
+    let frame = 0;
+    let buildTimer = 0;
+    let radius = 110;
+    let hudTarget: Element | null = null;
+    const pointer = {
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+      tx: window.innerWidth / 2,
+      ty: window.innerHeight / 2,
+      inside: true,
+    };
+
+    lens.style.setProperty("--r", `${radius}px`);
+
+    // ---- Codice e misure ---------------------------------------------
+    const hasOwnText = (el: Element) =>
+      [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? "").trim());
+
+    const leafCode = (block: Block) => {
+      const budget = { chars: 500 };
+      if (!dialect) return serializeHtml(block.el, budget);
+      if (dialect.kind === "cobol") return serializeCobol(block.el, block.top, block.left, budget);
+      return serializeTemplate(block.el, dialect, budget);
+    };
+
+    const boxLabel = (el: Element) => {
+      if (!dialect) return htmlOpenTag(el);
+      if (dialect.kind === "cobol") return cobolLabel(el);
+      return templateOpenTag(el, dialect);
+    };
+
+    const plainText = (html: string) =>
+      html
+        .replace(/<[^>]+>/g, "")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, "&");
+
+    const overlaps = (a: Area, b: Area) =>
+      a.left < b.left + b.width && b.left < a.left + a.width && a.top < b.top + b.height && b.top < a.top + a.height;
+
+    /** Larghezza del carattere monospace, misurata una volta sulle etichette */
+    const measureFont = () => {
+      const probe = document.createElement("span");
+      probe.className = "xray__tag";
+      probe.style.visibility = "hidden";
+      pageLayer.append(probe);
+      probe.textContent = "0".repeat(20);
+      const width20 = probe.offsetWidth;
+      probe.textContent = "0".repeat(40);
+      const width40 = probe.offsetWidth;
+      probe.remove();
+      const char = (width40 - width20) / 20;
+      return { labelChar: char, labelPadding: width20 - 20 * char, ratio: char / LABEL_FONT };
+    };
+
+    /** Carattere più grande con cui il codice entra nel riquadro (stima), null se non entra neanche al minimo */
+    const estimateFont = (lines: number[], area: Area, ratio: number) => {
+      for (let size = FONT.max; size >= FONT.min; size -= 0.25) {
+        const cols = Math.floor((area.width - size * LEAF_PADDING.x) / (size * ratio));
+        const rows = Math.floor((area.height - size * LEAF_PADDING.y) / (size * LEAF_LINE_HEIGHT));
+        if (cols < 1 || rows < 1) continue;
+        const needed = lines.reduce((sum, length) => sum + Math.max(1, Math.ceil(length / cols)), 0);
+        if (needed <= rows) return size;
+      }
+      return null;
+    };
+
+    /** Corregge la stima con poche misure su tutti i blocchi insieme (gli a capo reali cadono sugli spazi) */
+    const fitAll = (divs: HTMLElement[]) => {
+      const overflows = (div: HTMLElement) =>
+        div.scrollHeight > div.clientHeight + 0.5 || div.scrollWidth > div.clientWidth + 0.5;
+      let pending = divs.filter(overflows);
+      for (let pass = 0; pass < 5 && pending.length > 0; pass++) {
+        for (const div of pending) {
+          div.style.fontSize = `${Math.max(FONT.min, parseFloat(div.style.fontSize) * 0.88)}px`;
+        }
+        pending = pending.filter(overflows);
+      }
+      // Se non basta, si va a capo in qualunque punto invece che sugli spazi
+      for (const div of pending) div.classList.add("xray__leaf--dense");
+    };
+
+    /** Ingrandisce il livello del codice attorno al mirino */
+    const placeLayers = () => {
+      const { x, y } = pointer;
+      pageLayer.style.transform = `translate3d(${x - ZOOM * (x + window.scrollX)}px, ${y - ZOOM * (y + window.scrollY)}px, 0) scale(${ZOOM})`;
+      fixedLayer.style.transform = `translate3d(${x - ZOOM * x}px, ${y - ZOOM * y}px, 0) scale(${ZOOM})`;
+    };
+
+    // ---- Livello del codice ---------------------------------------
+    const build = () => {
+      dirty = false;
+      const sx = window.scrollX;
+      const sy = window.scrollY;
+      const metrics = measureFont();
+      const leaves: Leaf[] = [];
+      const boxes: Block[] = [];
+
+      // Le parti nascoste da un antenato con overflow (card, finestre, schede) non si disegnano,
+      // altrimenti il codice finirebbe sopra gli elementi vicini
+      const clipCache = new Map<Element, DOMRect | null>();
+      const clipOf = (el: Element) => {
+        if (!clipCache.has(el)) {
+          const style = getComputedStyle(el);
+          const clips = style.overflowX !== "visible" || style.overflowY !== "visible";
+          clipCache.set(el, clips ? el.getBoundingClientRect() : null);
+        }
+        return clipCache.get(el) ?? null;
+      };
+
+      const visibleArea = (el: Element): Area => {
+        const rect = el.getBoundingClientRect();
+        let { left, top, right, bottom } = rect;
+        for (let parent = el.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
+          const clip = clipOf(parent);
+          if (!clip) continue;
+          left = Math.max(left, clip.left);
+          top = Math.max(top, clip.top);
+          right = Math.min(right, clip.right);
+          bottom = Math.min(bottom, clip.bottom);
+        }
+        return { left, top, width: right - left, height: bottom - top };
+      };
+
+      /** Blocco di codice con il carattere stimato; null se non entra neanche con il carattere minimo */
+      const toLeaf = (block: Block): Leaf | null => {
+        const html = leafCode(block);
+        const lines = plainText(html)
+          .split("\n")
+          .map((line) => line.length);
+        const font = estimateFont(lines, block, metrics.ratio);
+        return font === null ? null : { ...block, html, font };
+      };
+
+      const forceLeaf = (block: Block): Leaf => toLeaf(block) ?? { ...block, html: leafCode(block), font: FONT.min };
+
+      // 1. Raccoglie blocchi di codice e riquadri
+      const visit = (parent: Element, fixed: boolean, parentBlock?: Block): Visit => {
+        const children: { block: Block; leaf: Leaf | null; isLeaf: boolean }[] = [];
+        let tooSmall = false;
+
+        for (const el of parent.children) {
+          if (el.matches(SKIP)) continue;
+          const area = visibleArea(el);
+          if (area.width < 1 || area.height < 1) continue;
+
+          // La barra di navigazione è sticky: resta nel livello fisso
+          const isFixed = fixed || el.matches(".nav");
+          const block: Block = {
+            el,
+            fixed: isFixed,
+            left: area.left + (isFixed ? 0 : sx),
+            top: area.top + (isFixed ? 0 : sy),
+            width: area.width,
+            height: area.height,
+          };
+          if (block.top + block.height <= 0) continue;
+
+          const isLeaf =
+            el.matches(LEAF) ||
+            hasOwnText(el) ||
+            el.childElementCount === 0 ||
+            (dialect !== undefined && el.matches(TEMPLATE_LEAF));
+
+          if (!isLeaf) {
+            children.push({ block, leaf: null, isLeaf: false });
+            continue;
+          }
+
+          const leaf = toLeaf(block);
+          if (!leaf) {
+            // Decorazioni minuscole senza testo (pallini, linee): nessun codice leggibile, si saltano
+            if (!(el.textContent ?? "").trim()) continue;
+            tooSmall = true;
+          }
+          children.push({ block, leaf, isLeaf: true });
+        }
+
+        // Un elemento con testo è troppo piccolo per il suo codice: il contenitore diventa un blocco unico.
+        // Se non basta neanche quello, si risale al contenitore successivo.
+        const leafStart = leaves.length;
+        const boxStart = boxes.length;
+        const promote = (): Visit => {
+          leaves.length = leafStart;
+          boxes.length = boxStart;
+          const merged = parentBlock && toLeaf(parentBlock);
+          if (!merged) return "escalate";
+          leaves.push(merged);
+          return "merged";
+        };
+
+        if (tooSmall && parentBlock) return promote();
+
+        for (const child of children) {
+          if (child.isLeaf) {
+            leaves.push(child.leaf ?? forceLeaf(child.block));
+            continue;
+          }
+          const boxIndex = child.block.el.matches(BOX) ? boxes.push(child.block) - 1 : -1;
+          const result = visit(child.block.el, child.block.fixed, child.block);
+          if (result === "done") continue;
+          if (boxIndex >= 0) boxes.splice(boxIndex, 1);
+          if (result === "escalate") {
+            if (parentBlock) return promote();
+            // Al livello più alto non si può risalire: si mostra il blocco con il carattere minimo
+            leaves.push(forceLeaf(child.block));
+          }
+        }
+        return "done";
+      };
+      visit(document.body, false);
+
+      // 2. Disegna, mettendo ogni etichetta dove non copre codice né altre etichette
+      const pageFragment = document.createDocumentFragment();
+      const fixedFragment = document.createDocumentFragment();
+      const taken = { page: [] as Area[], fixed: [] as Area[] };
+      for (const leaf of leaves) (leaf.fixed ? taken.fixed : taken.page).push(leaf);
+
+      const draw = (block: Block, className: string, html: string, css = "") => {
+        const div = document.createElement("div");
+        div.className = className;
+        div.style.cssText = `left:${block.left}px;top:${block.top}px;width:${block.width}px;height:${block.height}px;${css}`;
+        div.innerHTML = html;
+        (block.fixed ? fixedFragment : pageFragment).append(div);
+        return div;
+      };
+
+      for (const box of boxes) {
+        const label = boxLabel(box.el);
+        const width = Math.min(plainText(label).length * metrics.labelChar + metrics.labelPadding + 1, LABEL_MAX_WIDTH);
+        const occupied = box.fixed ? taken.fixed : taken.page;
+        const right = box.left + box.width - width;
+        const spots: Area[] = [
+          { left: box.left, top: box.top, width, height: LABEL_HEIGHT },
+          { left: box.left, top: box.top - LABEL_HEIGHT - 1, width, height: LABEL_HEIGHT },
+          { left: right, top: box.top, width, height: LABEL_HEIGHT },
+          { left: right, top: box.top + box.height - LABEL_HEIGHT, width, height: LABEL_HEIGHT },
+        ];
+        const spot = spots.find((s) => s.top >= 0 && s.left >= 0 && !occupied.some((o) => overlaps(s, o)));
+
+        let tag = "";
+        if (spot) {
+          occupied.push(spot);
+          tag = `<span class="xray__tag" style="left:${spot.left - box.left}px;top:${spot.top - box.top}px;max-width:${width}px">${label}</span>`;
+        }
+        draw(box, box.el.matches(".nav") ? "xray__box xray__box--solid" : "xray__box", tag);
+      }
+
+      const drawn = leaves.map((leaf) =>
+        draw(leaf, leaf.el.matches(".nav") ? "xray__leaf xray__leaf--solid" : "xray__leaf", leaf.html, `font-size:${leaf.font}px`),
+      );
+
+      pageLayer.replaceChildren(pageFragment);
+      fixedLayer.replaceChildren(fixedFragment);
+      pageLayer.style.height = `${document.documentElement.scrollHeight}px`;
+
+      // 3. Verifica la stima del carattere (serve il layout, quindi dopo l'inserimento)
+      fitAll(drawn);
+      placeLayers();
+    };
+
+    const scheduleBuild = (delay = 150) => {
+      dirty = true;
+      if (!active) return;
+      window.clearTimeout(buildTimer);
+      buildTimer = window.setTimeout(build, delay);
+    };
+
+    // ---- Lente -----------------------------------------------
+    const describe = (el: Element) => el.tagName.toLowerCase() + [...el.classList].slice(0, 2).map((c) => `.${c}`).join("");
+
+    const updateHud = () => {
+      let el = document.elementFromPoint(pointer.tx, pointer.ty);
+      const svg = el?.closest("svg");
+      if (svg) el = svg.parentElement;
+      if (!el || el === hudTarget) return;
+      hudTarget = el;
+
+      const prefix = dialect ? dialect.short : el.closest("[data-inspect]")?.getAttribute("data-inspect");
+      hud.innerHTML = `${prefix ? `<span class="lens__file">${esc(prefix)}</span>` : ""}<span>${esc(describe(el))}</span>`;
+    };
+
+    const render = () => {
+      frame = 0;
+      const ease = reducedMotion ? 1 : 0.45;
+      pointer.x += (pointer.tx - pointer.x) * ease;
+      pointer.y += (pointer.ty - pointer.y) * ease;
+
+      const clip = pointer.inside ? radius : 0;
+      xray.style.clipPath = `circle(${clip}px at ${pointer.x}px ${pointer.y}px)`;
+      placeLayers();
+      lens.style.transform = `translate3d(${pointer.x - radius}px, ${pointer.y - radius}px, 0)`;
+      lens.style.opacity = pointer.inside ? "1" : "0";
+      lens.classList.toggle("lens--flip", pointer.y > window.innerHeight - radius * 2 - 48);
+      updateHud();
+
+      if (Math.abs(pointer.tx - pointer.x) > 0.3 || Math.abs(pointer.ty - pointer.y) > 0.3) {
+        frame = requestAnimationFrame(render);
+      }
+    };
+
+    const requestRender = () => {
+      if (active && !frame) frame = requestAnimationFrame(render);
+    };
+
+    const setRadius = (value: number) => {
+      radius = Math.min(RADIUS.max, Math.max(RADIUS.min, value));
+      lens.style.setProperty("--r", `${radius}px`);
+      requestRender();
+    };
+
+    const setActive = (on: boolean) => {
+      if (on && !fineHover.matches) return;
+      active = on;
+      root.classList.toggle("is-inspecting", on);
+      toggle.setAttribute("aria-pressed", String(on));
+      xray.hidden = lens.hidden = pill.hidden = !on;
+
+      if (on) {
+        pointer.x = pointer.tx;
+        pointer.y = pointer.ty;
+        if (dirty) build();
+        else placeLayers();
+        hudTarget = null;
+        requestRender();
+      }
+    };
+
+    // ---- Eventi ----------------------------------------------
+    toggle.addEventListener("click", () => setActive(!active));
+
+    pill.addEventListener("click", (event) => {
+      if ((event.target as Element).closest("[data-inspect-exit]")) setActive(false);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.matches("input, textarea, select"))) return;
+
+      if (active && event.key === "Escape") {
+        setActive(false);
+      } else if (active && (event.key === "+" || event.key === "=")) {
+        event.preventDefault();
+        setRadius(radius + RADIUS.step);
+      } else if (active && (event.key === "-" || event.key === "_")) {
+        event.preventDefault();
+        setRadius(radius - RADIUS.step);
+      } else if (event.key.toLowerCase() === "i" && !event.repeat) {
+        setActive(!active);
+      }
+    });
+
+    window.addEventListener(
+      "pointermove",
+      (event) => {
+        if (event.pointerType !== "mouse") return;
+        pointer.tx = event.clientX;
+        pointer.ty = event.clientY;
+        pointer.inside = true;
+        requestRender();
+      },
+      { passive: true },
+    );
+
+    document.addEventListener("mouseout", (event) => {
+      if (event.relatedTarget) return;
+      pointer.inside = false;
+      requestRender();
+    });
+
+    window.addEventListener(
+      "scroll",
+      () => {
+        if (!active) return;
+        placeLayers();
+        hudTarget = null;
+        requestRender();
+      },
+      { passive: true },
+    );
+
+    // Ricostruisce il livello quando la pagina cambia (resize, schede, filtri, font)
+    new ResizeObserver(() => scheduleBuild()).observe(document.body);
+    window.addEventListener("resize", () => scheduleBuild());
+    new MutationObserver((records) => {
+      if (records.some((r) => !(r.target as Element).closest(OWN))) scheduleBuild(400);
+    }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["hidden", "aria-selected", "aria-pressed"] });
+    document.fonts?.ready.then(() => scheduleBuild());
+
+    fineHover.addEventListener("change", () => {
+      if (!fineHover.matches) setActive(false);
+    });
+  }
+</script>

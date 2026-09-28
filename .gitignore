@@ -1,0 +1,21 @@
+# build
+dist/
+.astro/
+
+# dipendenze
+node_modules/
+
+# ambiente
+.env
+.env.*
+
+# versione statica precedente del sito, sostituita da Astro
+_old-static/
+
+# editor
+.vscode/
+.idea/
+
+# sistema
+.DS_Store
+Thumbs.db

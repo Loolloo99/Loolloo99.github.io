@@ -1,0 +1,295 @@
+---
+import { getImage, Image } from "astro:assets";
+import { render } from "astro:content";
+import CodePreview from "../components/CodePreview.astro";
+import Icon from "../components/Icon.astro";
+import { getLanguage, SITE } from "../config";
+import { LOCALES, localeUrl, useTranslations } from "../i18n/ui";
+import Base from "../layouts/Base.astro";
+import { dialectFor } from "../lib/inspect/dialects";
+import { projectPath, projectUrl, type Project } from "../lib/projects";
+import { url } from "../lib/url";
+
+/* Le pagine sono generate da src/pages/progetti/[id].astro e src/pages/en/projects/[id].astro */
+interface Props {
+  project: Project;
+  prev?: Project;
+  next?: Project;
+}
+
+const { project, prev, next } = Astro.props;
+const { data, lang } = project;
+const t = useTranslations(lang);
+/** "Progetti {lang}" / "{lang} projects", con il nome del linguaggio in mezzo */
+const [backBefore, backAfter] = t("project.back").split("{lang}");
+const alternates = Object.fromEntries(LOCALES.map((code) => [code, projectPath(project.id, code)]));
+const languages = data.languages.map(getLanguage);
+const language = languages[0];
+/** I framework del linguaggio principale vengono prima: decidono il dialetto della lente */
+const frameworks = [...data.frameworks].sort(
+  (a, b) => Number(!language.frameworks.includes(a)) - Number(!language.frameworks.includes(b)),
+);
+const { Content } = await render(project.entry);
+const hasBody = Boolean(project.body?.trim());
+const [cover, ...gallery] = data.screenshots;
+/** con un video la copertina fa da poster */
+const poster = data.video && cover ? (await getImage({ src: cover, width: Math.min(cover.width, 1600) })).src : undefined;
+/** i link "apri a piena grandezza" puntano a una WebP, più leggera del PNG originale */
+const [coverFull, ...galleryFull] = await Promise.all(
+  data.screenshots.map(async (shot) => (await getImage({ src: shot, format: "webp", quality: 90 })).src),
+);
+const VIDEO_TYPES: Record<string, string> = { webm: "video/webm", mp4: "video/mp4", mov: "video/quicktime" };
+const videoType = (path: string) => VIDEO_TYPES[path.split(".").pop()!.toLowerCase()];
+
+const external = { target: "_blank", rel: "noopener noreferrer" };
+const shortUrl = (href: string) => href.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+
+/*
+ * Gli attributi data-bind / data-each / data-if dicono alla modalità inspect code quale dato
+ * c'è dietro ogni elemento, così la lente può mostrarlo come variabile nel template
+ * del framework del progetto (vedi src/lib/inspect/serialize.ts).
+ */
+---
+
+<Base
+  lang={lang}
+  alternates={alternates}
+  title={`${data.title} · ${SITE.name}`}
+  description={data.summary}
+  image={cover}
+  source="views/ProjectPage.astro"
+  dialect={dialectFor(language.id, frameworks)}
+  accent={language.color}
+>
+  <article class="project" style={`--c:${language.color}`}>
+    <div class="container">
+      <a class="back" href={`${localeUrl(lang)}#progetti/${language.id}`} data-bind-href="language.url">
+        <Icon name="back" />{backBefore}<span data-bind="language.name">{language.name}</span>{backAfter}
+      </a>
+
+      <header class="project__head">
+        <div class="meta">
+          <span class="meta__lang">
+            <span class="dot"></span>
+            <span>
+              <span data-bind="languages" data-bind-join>{languages.map((l) => l.name).join(" + ")}</span>{
+                data.frameworks.length > 0 && (
+                  <>
+                    {" · "}
+                    <span data-bind="frameworks" data-bind-join>{data.frameworks.join(", ")}</span>
+                  </>
+                )
+              }
+            </span>
+          </span>
+          {data.year && <span data-bind="year">{data.year}</span>}
+        </div>
+        <h1 class="project__title" data-bind="title">{data.title}</h1>
+        <p class="project__lead" data-bind="summary">{data.summary}</p>
+        <div class="actions">
+          {
+            data.github && (
+              <a class="btn btn--primary" href={data.github} {...external} data-if="github" data-bind-href="github">
+                <Icon name="github" />
+                {t("project.github")}
+              </a>
+            )
+          }
+          {
+            data.demo && (
+              <a
+                class:list={["btn", { "btn--primary": !data.github }]}
+                href={data.demo}
+                {...external}
+                data-if="demo"
+                data-bind-href="demo"
+              >
+                <Icon name="external" />
+                {t("project.demo")}
+              </a>
+            )
+          }
+          {
+            !data.github && (
+              <span class="private" data-if="!github">
+                <Icon name="lock" />
+                {t("project.notPublic")}
+              </span>
+            )
+          }
+        </div>
+      </header>
+
+      <figure class="project__cover">
+        {
+          data.video ? (
+            <video
+              poster={poster}
+              controls
+              muted
+              loop
+              playsinline
+              preload="metadata"
+              aria-label={t("project.video", { title: data.title })}
+            >
+              {data.video.map((src) => (
+                <source src={url(src)} type={videoType(src)} data-bind-src="video" />
+              ))}
+            </video>
+          ) : cover ? (
+            <a href={coverFull} {...external} data-bind-href="cover.src">
+              <Image
+                src={cover}
+                alt={t("card.screenshot", { title: data.title })}
+                widths={[800, 1200, 1600]}
+                sizes="(max-width: 1160px) 100vw, 1120px"
+                loading="eager"
+                data-bind-src="cover.src"
+                data-bind-alt="title"
+              />
+            </a>
+          ) : (
+            <CodePreview project={project} big />
+          )
+        }
+      </figure>
+
+      <div class:list={["project__body", { "project__body--solo": !hasBody }]}>
+        {
+          hasBody && (
+            <div
+              class="prose"
+              lang={project.translated ? undefined : "it"}
+              data-inspect={`content/progetti/${project.id}/${project.entry.collection === "progettiEn" ? "index.en.md" : "index.md"}`}
+              data-bind-html="description"
+            >
+              {!project.translated && <p lang={lang}><em>{t("project.untranslated")}</em></p>}
+              <Content />
+            </div>
+          )
+        }
+        <aside class="project__aside" aria-label={t("project.sheet")}>
+          <dl class="facts">
+            <div>
+              <dt>{t(languages.length > 1 ? "project.languages" : "project.language")}</dt>
+              <dd>
+                <ul class="chips" data-each="languages" data-as="lang">
+                  {languages.map((l) => (
+                    <li class="chip chip--strong" data-bind="lang.name">{l.name}</li>
+                  ))}
+                </ul>
+              </dd>
+            </div>
+            {
+              data.frameworks.length > 0 && (
+                <div>
+                  <dt>framework</dt>
+                  <dd>
+                    <ul class="chips" data-each="frameworks" data-as="framework">
+                      {data.frameworks.map((f) => (
+                        <li class="chip chip--strong" data-bind="framework">{f}</li>
+                      ))}
+                    </ul>
+                  </dd>
+                </div>
+              )
+            }
+            {
+              data.tags.length > 0 && (
+                <div>
+                  <dt>{t("project.tags")}</dt>
+                  <dd>
+                    <ul class="chips" data-each="tags" data-as="tag">
+                      {data.tags.map((t) => (
+                        <li class="chip" data-bind="tag">{t}</li>
+                      ))}
+                    </ul>
+                  </dd>
+                </div>
+              )
+            }
+            {
+              data.year && (
+                <div>
+                  <dt>{t("project.year")}</dt>
+                  <dd data-bind="year">{data.year}</dd>
+                </div>
+              )
+            }
+            <div>
+              <dt>{t("project.code")}</dt>
+              <dd>
+                {
+                  data.github ? (
+                    <a href={data.github} {...external} data-bind-href="github">
+                      <Icon name="github" />
+                      <span data-bind="github">{shortUrl(data.github)}</span>
+                    </a>
+                  ) : (
+                    t("project.notPublicShort")
+                  )
+                }
+              </dd>
+            </div>
+            {
+              data.demo && (
+                <div>
+                  <dt>demo</dt>
+                  <dd>
+                    <a href={data.demo} {...external} data-bind-href="demo">
+                      <Icon name="external" />
+                      <span data-bind="demo">{shortUrl(data.demo)}</span>
+                    </a>
+                  </dd>
+                </div>
+              )
+            }
+          </dl>
+        </aside>
+      </div>
+
+      {
+        gallery.length > 0 && (
+          <section class="shots" aria-labelledby="shots-title">
+            <h2 class="eyebrow" id="shots-title">{t("project.moreShots")}</h2>
+            <div class="shots__grid" data-each="gallery" data-as="shot">
+              {gallery.map((shot, i) => (
+                <a class="shots__item" href={galleryFull[i]} {...external} data-bind-href="shot.src">
+                  <Image
+                    src={shot}
+                    alt={t("project.shotN", { n: i + 2, title: data.title })}
+                    widths={[600, 1100]}
+                    sizes="(max-width: 960px) 100vw, 550px"
+                    data-bind-src="shot.src"
+                    data-bind-alt="title"
+                  />
+                </a>
+              ))}
+            </div>
+          </section>
+        )
+      }
+
+      <nav class="pager" aria-label={t("project.others")}>
+        {
+          prev ? (
+            <a class="pager__prev" href={projectUrl(prev)} data-bind-href="prev.url">
+              <span class="pager__label"><Icon name="back" />{t("project.prev")}</span>
+              <span class="pager__title" data-bind="prev.title">{prev.data.title}</span>
+            </a>
+          ) : (
+            <span />
+          )
+        }
+        {
+          next && (
+            <a class="pager__next" href={projectUrl(next)} data-bind-href="next.url">
+              <span class="pager__label">{t("project.next")}<Icon name="arrow" /></span>
+              <span class="pager__title" data-bind="next.title">{next.data.title}</span>
+            </a>
+          )
+        }
+      </nav>
+    </div>
+  </article>
+</Base>

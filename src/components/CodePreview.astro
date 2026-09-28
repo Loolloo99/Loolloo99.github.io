@@ -1,0 +1,39 @@
+---
+/* Anteprima in stile editor, usata quando un progetto non ha screenshot */
+import { getLanguage } from "../config";
+import { projectSnippet } from "../lib/code";
+import type { Project } from "../lib/projects";
+
+interface Props {
+  project: Project;
+  big?: boolean;
+}
+
+const { project, big = false } = Astro.props;
+const { data } = project;
+const language = getLanguage(data.languages[0]);
+const { file, html } = projectSnippet({
+  id: project.id,
+  title: data.title,
+  language: language.id,
+  ext: language.ext,
+  frameworks: data.frameworks,
+  tags: data.tags,
+});
+---
+
+<div
+  class:list={["preview", { "preview--big": big }]}
+  style={`--c:${language.color}`}
+  aria-hidden="true"
+  data-inspect="components/CodePreview.astro"
+  data-include="code-preview"
+>
+  <div class="window">
+    <div class="window__bar">
+      <span class="window__dots"><i></i><i></i><i></i></span>
+      <span class="window__title">{file}</span>
+    </div>
+    <pre class="code" set:html={html}></pre>
+  </div>
+</div>

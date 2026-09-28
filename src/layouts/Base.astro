@@ -1,0 +1,239 @@
+---
+import "../styles/global.css";
+import type { ImageMetadata } from "astro";
+import { getImage } from "astro:assets";
+import Icon from "../components/Icon.astro";
+import Inspector from "../components/Inspector.astro";
+import { SITE } from "../config";
+import { LANG_NAMES, LOCALES, localeUrl, useTranslations, type Lang } from "../i18n/ui";
+import { faviconFor } from "../lib/favicon";
+
+interface Props {
+  lang: Lang;
+  /** Indirizzo della stessa pagina nelle altre lingue (per il selettore e hreflang); di default la home */
+  alternates?: Partial<Record<Lang, string>>;
+  title: string;
+  description: string;
+  /** Immagine per l'anteprima dei link condivisi (Open Graph) */
+  image?: ImageMetadata;
+  /** File sorgente della pagina, mostrato dalla modalità inspect code */
+  source?: string;
+  /** Dialetto della lente nelle pagine progetto (vedi src/lib/inspect/dialects.ts) */
+  dialect?: string;
+  /** Colore del linguaggio, usato dalla lente */
+  accent?: string;
+}
+
+const { lang, alternates = {}, title, description, image, source, dialect, accent } = Astro.props;
+const t = useTranslations(lang);
+const home = localeUrl(lang);
+const versions = LOCALES.map((code) => ({ code, href: alternates[code] ?? localeUrl(code), ...LANG_NAMES[code] }));
+/** L'altra lingua, aperta dal tasto F4 */
+const other = versions.find((v) => v.code !== lang)!;
+
+// Gli URL assoluti richiedono `site` in astro.config.mjs
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : undefined;
+const absolute = (path: string) => (Astro.site ? new URL(path, Astro.site).href : undefined);
+const ogImage =
+  image && Astro.site
+    ? new URL((await getImage({ src: image, width: 1200, format: "jpg" })).src, Astro.site).href
+    : undefined;
+
+const favicon = faviconFor(SITE.initials);
+
+/** Sezioni con il tasto funzione che le apre, come su un terminale 3270 */
+const sections = [
+  { key: "F1", label: t("nav.stack"), hash: "#stack" },
+  { key: "F2", label: t("nav.projects"), hash: "#progetti" },
+  { key: "F3", label: t("nav.contact"), hash: "#contatti" },
+];
+---
+
+<!doctype html>
+<html lang={lang} data-theme="amber">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#0e0c08" />
+    <link rel="icon" href={favicon} />
+    {canonical && <link rel="canonical" href={canonical} />}
+    {
+      Astro.site &&
+        versions
+          .filter((v) => alternates[v.code])
+          .map((v) => <link rel="alternate" hreflang={v.code} href={absolute(v.href)} />)
+    }
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    {canonical && <meta property="og:url" content={canonical} />}
+    <meta property="og:locale" content={LANG_NAMES[lang].locale} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta name="twitter:card" content={ogImage ? "summary_large_image" : "summary"} />
+    <meta name="generator" content={Astro.generator} />
+
+    <!-- Applica il fosforo scelto prima del rendering per evitare il lampeggio -->
+    <script is:inline>
+      (function () {
+        var t;
+        try { t = localStorage.getItem("phosphor"); } catch (e) {}
+        document.documentElement.dataset.theme = t === "green" ? "green" : "amber";
+      })();
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=VT323&display=swap"
+    />
+  </head>
+  <body>
+    <a class="skip" href="#main">{t("nav.skip")}</a>
+
+    <header class="nav" data-inspect="layouts/Base.astro" data-include="nav">
+      <div class="container nav__inner">
+        <a class="brand" href={home} aria-label={SITE.name}>
+          <span class="brand__full">{SITE.name}</span><span class="brand__short" aria-hidden="true">{SITE.initials}</span>
+        </a>
+        <nav class="nav__links" aria-label={t("nav.sections")}>
+          {
+            sections.map((section) => (
+              <a href={`${home}${section.hash}`} data-key={section.key}>
+                <span class="nav__key" aria-hidden="true">[{section.key}]</span> {section.label}
+              </a>
+            ))
+          }
+          <a
+            href={other.href}
+            hreflang={other.code}
+            lang={other.code}
+            aria-label={useTranslations(other.code)("nav.readIn")}
+            title={useTranslations(other.code)("nav.readIn")}
+            data-key="F4"
+            data-lang-switch
+          >
+            <span class="nav__key" aria-hidden="true">[F4]</span> {other.short}
+          </a>
+        </nav>
+        <div class="nav__tools">
+          <button
+            class="icon-btn"
+            id="inspect-toggle"
+            type="button"
+            aria-pressed="false"
+            aria-label={t("nav.inspect")}
+            title={t("nav.inspectTitle")}
+          >
+            <Icon name="inspect" />
+          </button>
+          <button
+            class="icon-btn phosphor-toggle"
+            id="theme-toggle"
+            type="button"
+            aria-label={t("phosphor.toGreen")}
+            data-amber={t("phosphor.amber")}
+            data-green={t("phosphor.green")}
+            data-to-amber={t("phosphor.toAmber")}
+            data-to-green={t("phosphor.toGreen")}
+          >
+            {t("phosphor.amber")}
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main
+      id="main"
+      data-inspect={source}
+      data-inspect-dialect={dialect || undefined}
+      data-inspect-color={dialect ? accent : undefined}
+    >
+      <slot />
+    </main>
+
+    <footer class="footer" data-inspect="layouts/Base.astro" data-include="footer">
+      <div class="container footer__inner">
+        <span>(C) {new Date().getFullYear()} {SITE.name}</span>
+        <span>{t("footer.ai")}</span>
+        <a href="#main">{t("footer.top")}</a>
+      </div>
+    </footer>
+
+    <Inspector lang={lang} />
+
+    <script>
+      const root = document.documentElement;
+
+      // Fosforo ambra o verde
+      const phosphorButton = document.getElementById("theme-toggle");
+      const syncPhosphor = () => {
+        const green = root.dataset.theme === "green";
+        if (!phosphorButton) return;
+        const labels = phosphorButton.dataset;
+        phosphorButton.textContent = (green ? labels.green : labels.amber) ?? "";
+        phosphorButton.setAttribute("aria-label", (green ? labels.toAmber : labels.toGreen) ?? "");
+      };
+      phosphorButton?.addEventListener("click", () => {
+        const next = root.dataset.theme === "green" ? "amber" : "green";
+        root.dataset.theme = next;
+        try {
+          localStorage.setItem("phosphor", next);
+        } catch {
+          /* storage non disponibile */
+        }
+        syncPhosphor();
+      });
+      syncPhosphor();
+
+      // Cambiando lingua resta aperta la stessa sezione, es. #progetti/python,
+      // e la pagina riparte dallo stesso punto invece di saltare all'hash
+      document.querySelectorAll<HTMLAnchorElement>("[data-lang-switch]").forEach((link) => {
+        link.addEventListener("click", () => {
+          if (location.hash && !new URL(link.href).hash) link.hash = location.hash;
+          try {
+            sessionStorage.setItem("lang-switch-scroll", String(window.scrollY));
+          } catch {
+            /* storage non disponibile */
+          }
+        });
+      });
+
+      let savedScroll: string | null = null;
+      try {
+        savedScroll = sessionStorage.getItem("lang-switch-scroll");
+        sessionStorage.removeItem("lang-switch-scroll");
+      } catch {
+        /* storage non disponibile */
+      }
+      if (savedScroll !== null) {
+        const top = Number(savedScroll);
+        const restore = () => window.scrollTo({ top, behavior: "instant" });
+        // Dopo lo scroll all'hash del browser e quello della home
+        restore();
+        requestAnimationFrame(restore);
+        window.addEventListener("load", () => requestAnimationFrame(restore), { once: true });
+      }
+
+      // Bordo della barra di navigazione dopo lo scroll
+      const nav = document.querySelector(".nav");
+      const onScroll = () => nav?.classList.toggle("is-scrolled", window.scrollY > 8);
+      window.addEventListener("scroll", onScroll, { passive: true });
+      onScroll();
+
+      // Tasti funzione: F1 stack, F2 progetti, F3 contatti, F4 lingua
+      const shortcuts = new Map(
+        [...document.querySelectorAll<HTMLAnchorElement>(".nav__links a[data-key]")].map((link) => [link.dataset.key, link]),
+      );
+      document.addEventListener("keydown", (event) => {
+        const link = shortcuts.get(event.key);
+        if (!link || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+        event.preventDefault();
+        link.click();
+      });
+    </script>
+  </body>
+</html>
