@@ -3,7 +3,7 @@ title: Restaurant booking platform
 summary: Online bookings for a restaurant, with a public site for customers and a back office reserved for staff.
 ---
 
-A web platform for restaurant bookings, split into two parts. The **front office** is public: this is where customers book. The **back office** is reserved for staff and is where all booking management happens.
+A full-stack web platform for restaurant bookings, split into two parts. The **front office** is public: this is where customers book. The **back office** is reserved for staff and is where all booking management happens.
 
 ## Front office
 

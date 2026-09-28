@@ -21,7 +21,7 @@ export interface Language {
 export const SITE = {
   name: "Lorenzo Bolzoni",
   initials: "LB",
-  role: { it: "Sviluppatore full-stack", en: "Full-stack developer" } as Localized,
+  role: { it: "Sviluppatore software", en: "Software developer" } as Localized,
   bio: {
     it: "Progetto e sviluppo applicazioni web e servizi backend, dai gestionali in Laravel alle API in FastAPI, fino a soluzioni IoT che collegano dispositivi e sensori al web.",
     en: "I design and build web applications and backend services, from Laravel management systems to FastAPI APIs, all the way to IoT solutions that connect devices and sensors to the web.",

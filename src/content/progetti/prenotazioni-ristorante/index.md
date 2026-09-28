@@ -10,7 +10,7 @@ demo: null
 video: null
 ---
 
-Una piattaforma web per le prenotazioni di un ristorante, divisa in due parti. Il **front office** è pubblico: da qui il cliente prenota. Il **back office** è riservato al personale ed è lì che avviene tutta la gestione delle prenotazioni.
+Una piattaforma web full-stack per le prenotazioni di un ristorante, divisa in due parti. Il **front office** è pubblico: da qui il cliente prenota. Il **back office** è riservato al personale ed è lì che avviene tutta la gestione delle prenotazioni.
 
 ## Front office
 
