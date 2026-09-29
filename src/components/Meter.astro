@@ -1,0 +1,25 @@
+---
+/** Misuratore a segmenti del livello, con la sigla del contesto: [■■□] [L] */
+import type { Level } from "../config";
+
+interface Props {
+  level: Level;
+  /** sigla del contesto, es. "[L]" */
+  tag?: string;
+  /** testo per gli screen reader; senza, il misuratore è decorativo */
+  label?: string;
+  small?: boolean;
+}
+
+const { level, tag, label, small = false } = Astro.props;
+---
+
+<span
+  class:list={["level", { "level--sm": small }]}
+  {...label ? { role: "img", "aria-label": label, title: label } : { "aria-hidden": "true" }}
+>
+  <span class="meter">
+    {[1, 2, 3].map((n) => <span class:list={["meter__seg", { "is-on": n <= level }]} />)}
+  </span>
+  {tag && <span class="ctx">{tag}</span>}
+</span>

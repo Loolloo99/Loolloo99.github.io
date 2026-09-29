@@ -464,7 +464,7 @@ code { font-family: var(--font-mono); font-size: .9em; }
 }
 .stack__row {
   display: grid;
-  grid-template-columns: 40px minmax(180px, 1fr) 2fr auto;
+  grid-template-columns: 40px 200px 72px 1fr 128px;
   align-items: center;
   gap: 16px;
   padding: 12px 18px;
@@ -484,9 +484,73 @@ code { font-family: var(--font-mono); font-size: .9em; }
   line-height: 1;
   text-transform: uppercase;
 }
+.stack__level { display: flex; }
+
+/* Livello: misuratore a segmenti [■■□] seguito dalla sigla del contesto [L] */
+.level { display: inline-flex; align-items: center; gap: 6px; }
+.ctx { color: var(--accent); font-size: 12px; font-weight: 500; line-height: 1; }
+
+/* Misuratore a segmenti */
+.meter { display: inline-flex; gap: 3px; }
+.meter__seg { width: 8px; height: 12px; align-self: center; border: 1px solid var(--border-strong); }
+.meter__seg.is-on { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px var(--glow); }
+
+/* Nei framework il misuratore è più piccolo e spento: quello del linguaggio resta il principale */
+.level--sm { gap: 4px; margin-left: 6px; }
+.level--sm .ctx { color: var(--muted); font-size: 11px; font-weight: 400; }
+.level--sm .meter { gap: 2px; }
+.level--sm .meter__seg { width: 5px; height: 8px; border-color: var(--border); }
+.level--sm .meter__seg.is-on { background: var(--muted); border-color: var(--muted); box-shadow: none; }
+.chip--fw { display: inline-flex; align-items: center; }
+/* Legenda dei livelli sotto lo stack */
+.section__head--split { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px 40px; }
+.key { position: relative; display: grid; justify-items: end; gap: 6px; font-size: 12px; }
+.key__row { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 16px; margin: 0; padding: 0; list-style: none; }
+.key__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  color: var(--text);
+  font: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+/* sottolineatura a puntini tenue, come <abbr>: dice che la voce ha una spiegazione */
+.key__label { text-decoration: underline dotted color-mix(in srgb, var(--border-strong), var(--muted)); text-underline-offset: 3px; }
+.key__item:hover .key__label, .is-open .key__label { color: var(--hi); text-decoration-color: var(--accent); }
+/* Descrizione della voce: si apre sotto la legenda al clic o al tocco, su desktop anche all'hover */
+.key__tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 5;
+  display: none;
+  width: max-content;
+  max-width: min(44ch, calc(100vw - 32px));
+  padding: 6px 10px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+}
+.key__tip::before { content: "> "; color: var(--accent); }
+.key__row li.is-open .key__tip { display: block; }
+@media (hover: hover) {
+  .key__row li:hover .key__tip { display: block; }
+  /* se passo sopra un'altra voce, la descrizione aperta col clic lascia il posto */
+  .key:hover li.is-open:not(:hover) .key__tip { display: none; }
+}
+@media (max-width: 720px) {
+  .key, .key__row { justify-items: start; justify-content: flex-start; }
+  .key__tip { right: auto; left: 0; }
+}
+
 .stack__ext { color: var(--muted); font-family: var(--font-mono); font-size: 12px; text-transform: none; }
 .stack__none { color: var(--muted); font-size: 12px; }
+.stack__row > .stack__none:last-child { justify-self: end; }
 .stack__link {
+  justify-self: end;
   padding: 2px 8px;
   margin-right: -8px;
   color: var(--accent);
@@ -506,7 +570,9 @@ code { font-family: var(--font-mono); font-size: .9em; }
   .stack__rank { grid-row: 1; }
   .stack__lang { grid-row: 1; grid-column: 2; }
   .stack__row > :last-child { grid-row: 1; grid-column: 3; }
-  .stack__fw { grid-row: 2; grid-column: 2 / -1; }
+  .stack__level { grid-row: 2; grid-column: 2; }
+  .stack__level:empty { display: none; }
+  .stack__fw { grid-row: 3; grid-column: 2 / -1; }
 }
 
 /* ---- Tab linguaggi ---------------------------------------- */

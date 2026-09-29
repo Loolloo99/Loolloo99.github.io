@@ -4,7 +4,7 @@ import { render } from "astro:content";
 import CodePreview from "../components/CodePreview.astro";
 import Gallery from "../components/Gallery.astro";
 import Icon from "../components/Icon.astro";
-import { getLanguage, SITE } from "../config";
+import { frameworkNames, getLanguage, SITE } from "../config";
 import { LOCALES, localeUrl, useTranslations } from "../i18n/ui";
 import Base from "../layouts/Base.astro";
 import { dialectFor } from "../lib/inspect/dialects";
@@ -28,7 +28,7 @@ const languages = data.languages.map(getLanguage);
 const language = languages[0];
 /** I framework del linguaggio principale vengono prima: decidono il dialetto della lente */
 const frameworks = [...data.frameworks].sort(
-  (a, b) => Number(!language.frameworks.includes(a)) - Number(!language.frameworks.includes(b)),
+  (a, b) => Number(!frameworkNames(language).includes(a)) - Number(!frameworkNames(language).includes(b)),
 );
 const { Content } = await render(project.entry);
 const hasBody = Boolean(project.body?.trim());

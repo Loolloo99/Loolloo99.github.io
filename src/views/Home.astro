@@ -1,7 +1,8 @@
 ---
 import Icon from "../components/Icon.astro";
+import Meter from "../components/Meter.astro";
 import ProjectCard from "../components/ProjectCard.astro";
-import { LANGUAGES, SITE, type Language } from "../config";
+import { frameworkNames, LANGUAGES, SITE, type Context, type Language, type Level } from "../config";
 import { countProjects, LOCALES, localeUrl, useTranslations, type Lang } from "../i18n/ui";
 import Base from "../layouts/Base.astro";
 import { profileCode } from "../lib/code";
@@ -32,18 +33,25 @@ const plural = (n: number) => countProjects(lang, n);
  * In un progetto Laravel + React, Laravel va sotto PHP e React sotto JavaScript;
  * i framework non associati a nessun linguaggio compaiono ovunque siano usati.
  */
-const mappedFrameworks = new Set(LANGUAGES.flatMap((l) => l.frameworks));
+const mappedFrameworks = new Set(LANGUAGES.flatMap(frameworkNames));
 const frameworksOf = (language: Language) => {
   const used = new Set(projectsOf(language.id).flatMap((p) => p.data.frameworks));
-  return [...language.frameworks.filter((f) => used.has(f)), ...[...used].filter((f) => !mappedFrameworks.has(f))];
+  return [...frameworkNames(language).filter((f) => used.has(f)), ...[...used].filter((f) => !mappedFrameworks.has(f))];
 };
+
+/** Livello e contesto a parole, per il tooltip e gli screen reader: "Intermedio · professionale" */
+const levelLabel = (item: { level: Level; context: Context }) => `${t(`level.${item.level}`)} · ${t(`context.${item.context}`)}`;
+
+/** Voci della legenda, dal livello più alto */
+const LEVELS = [3, 2, 1] as const;
+const CONTEXTS = ["work", "personal", "study"] as const;
 
 const profile = profileCode({
   role: SITE.role[lang],
   location: SITE.location[lang],
   languages: LANGUAGES.map((l) => l.name),
-  frameworks: [...new Set(LANGUAGES.flatMap((l) => l.frameworks))],
-  ai: SITE.ai,
+  frameworks: [...new Set(LANGUAGES.flatMap(frameworkNames))],
+  ai: SITE.ai.map((tool) => tool.name),
   projects: projects.length,
 }, {
   file: t("code.file"),
@@ -64,7 +72,7 @@ const external = { target: "_blank", rel: "noopener noreferrer" };
 const ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
 const escapeHtml = (text: string) => text.replace(/[&<>"]/g, (c) => ESCAPES[c]);
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const keywords = [...new Set([...LANGUAGES.map((l) => l.name), ...LANGUAGES.flatMap((l) => l.frameworks), ...SITE.ai])];
+const keywords = [...new Set([...LANGUAGES.map((l) => l.name), ...LANGUAGES.flatMap(frameworkNames), ...SITE.ai.map((tool) => tool.name)])];
 const bioHtml = keywords.reduce(
   (html, word) => html.replace(new RegExp(`\\b${escapeRegExp(word)}\\b`, "g"), `<strong class="hl">${escapeHtml(word)}</strong>`),
   escapeHtml(SITE.bio[lang]),
@@ -105,9 +113,39 @@ const bioHtml = keywords.reduce(
   <!-- Stack -->
   <section class="section" id="stack">
     <div class="container">
-      <div class="section__head">
-        <h2>Stack</h2>
-        <p class="section__lead">{t("home.stackLead")}</p>
+      <div class="section__head section__head--split">
+        <div>
+          <h2>Stack</h2>
+          <p class="section__lead">{t("home.stackLead")}</p>
+        </div>
+        <div class="key" role="group" aria-label={t("home.levelLegend")}>
+          <ul class="key__row">
+            {
+              LEVELS.map((n) => (
+                <li>
+                  <button type="button" class="key__item" aria-describedby={`key-level-${n}`}>
+                    <Meter level={n} />
+                    <span class="key__label">{t(`level.${n}`)}</span>
+                  </button>
+                  <span class="key__tip" id={`key-level-${n}`} role="tooltip">{t(`level.${n}.desc`)}</span>
+                </li>
+              ))
+            }
+          </ul>
+          <ul class="key__row">
+            {
+              CONTEXTS.map((c) => (
+                <li>
+                  <button type="button" class="key__item" aria-describedby={`key-${c}`}>
+                    <span class="ctx">{t(`context.${c}.tag`)}</span>
+                    <span class="key__label">{t(`context.${c}`)}</span>
+                  </button>
+                  <span class="key__tip" id={`key-${c}`} role="tooltip">{t(`context.${c}.desc`)}</span>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
       </div>
       <ol class="stack">
         {
@@ -121,9 +159,19 @@ const bioHtml = keywords.reduce(
                   {l.name}
                   <span class="stack__ext">{l.ext}</span>
                 </span>
+                <span class="stack__level">
+                  <Meter level={l.level} tag={t(`context.${l.context}.tag`)} label={levelLabel(l)} />
+                </span>
                 <span class="stack__fw">
                   {l.frameworks.length > 0 ? (
-                    <ul class="chips">{l.frameworks.map((f) => <li class="chip chip--strong">{f}</li>)}</ul>
+                    <ul class="chips">
+                      {l.frameworks.map((f) => (
+                        <li class="chip chip--strong chip--fw">
+                          {f.name}
+                          <Meter level={f.level} tag={t(`context.${f.context}.tag`)} label={levelLabel(f)} small />
+                        </li>
+                      ))}
+                    </ul>
                   ) : (
                     <span class="stack__none">—</span>
                   )}
@@ -147,8 +195,18 @@ const bioHtml = keywords.reduce(
             <li class="stack__row">
               <span class="stack__rank">AI</span>
               <span class="stack__lang">{t("home.aiTools")}</span>
+              <span class="stack__level" />
               <span class="stack__fw">
-                <ul class="chips">{SITE.ai.map((t) => <li class="chip chip--strong">{t}</li>)}</ul>
+                <ul class="chips">
+                  {SITE.ai.map((tool) => (
+                    <li class="chip chip--strong chip--fw">
+                      {tool.name}
+                      <span class="level level--sm" title={t(`context.${tool.context}`)}>
+                        <span class="ctx">{t(`context.${tool.context}.tag`)}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </span>
               <span class="stack__none">{t("home.aiUse")}</span>
             </li>
@@ -263,6 +321,26 @@ const bioHtml = keywords.reduce(
 </Base>
 
 <script>
+  // Legenda dello stack: al clic o al tocco su una voce si apre la sua descrizione (su desktop anche all'hover, via CSS)
+  const key = document.querySelector<HTMLElement>(".key");
+  if (key) {
+    const items = [...key.querySelectorAll<HTMLLIElement>(".key__row li")];
+    const close = () => items.forEach((item) => item.classList.remove("is-open"));
+    items.forEach((item) => {
+      item.querySelector(".key__item")?.addEventListener("click", () => {
+        const open = !item.classList.contains("is-open");
+        close();
+        item.classList.toggle("is-open", open);
+      });
+    });
+    document.addEventListener("click", (event) => {
+      if (!key.contains(event.target as Node)) close();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") close();
+    });
+  }
+
   // Schede per linguaggio e filtri per framework (senza JavaScript si vedono tutti i progetti)
   const tabs = document.querySelector<HTMLElement>("#tabs");
   const panel = document.querySelector<HTMLElement>("#projects-panel");

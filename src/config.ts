@@ -15,8 +15,21 @@ export interface Language {
   name: string;
   ext: string;
   color: string;
-  frameworks: string[];
+  frameworks: Framework[];
+  /** 1 base, 2 intermedio, 3 avanzato (definizioni in src/i18n/ui.ts, "level.*") */
+  level: Level;
+  /** Dove lo uso: work = lavoro, personal = progetti miei, study = studio */
+  context: Context;
 }
+
+export interface Framework {
+  name: string;
+  level: Level;
+  context: Context;
+}
+
+export type Level = 1 | 2 | 3;
+export type Context = "work" | "personal" | "study";
 
 export const SITE = {
   name: "Lorenzo Bolzoni",
@@ -34,20 +47,33 @@ export const SITE = {
   /** File dentro public/ (es. "cv.pdf") oppure null per nascondere il pulsante */
   cv: null as string | null,
   /** Strumenti AI: compaiono nel profilo in alto e nella sezione "Stack". [] per nasconderle */
-  ai: ["Claude Code", "Codex"] as string[],
+  ai: [
+    { name: "Claude Code", context: "work" },
+    { name: "Codex", context: "work" },
+  ] as { name: string; context: Context }[],
   /** Mostra il badge "Disponibile per nuovi progetti" */
   available: true,
 };
 
 /** Linguaggi, in ordine di esperienza */
 export const LANGUAGES: Language[] = [
-  { id: "php", name: "PHP", ext: ".php", color: "#8993BE", frameworks: ["Laravel"] },
-  { id: "js", name: "JavaScript", ext: ".js", color: "#F7DF1E", frameworks: ["React"] },
-  { id: "ts", name: "TypeScript", ext: ".ts", color: "#3178C6", frameworks: [] },
-  { id: "python", name: "Python", ext: ".py", color: "#5A9FD4", frameworks: ["Django", "FastAPI"] },
-  { id: "cobol", name: "COBOL", ext: ".cbl", color: "#3DDC97", frameworks: [] },
-  // { id: "java", name: "Java", ext: ".java", color: "#F0883E", frameworks: ["Spring Boot"] },
+  { id: "php", name: "PHP", ext: ".php", color: "#8993BE", frameworks: [{ name: "Laravel", level: 2, context: "work" }], level: 2, context: "work" },
+  { id: "js", name: "JavaScript", ext: ".js", color: "#F7DF1E", frameworks: [
+    { name: "React", level: 2, context: "work" },
+    { name: "Node.js", level: 1, context: "personal" },
+    { name: "Express", level: 1, context: "personal" },
+  ], level: 2, context: "work" },
+  { id: "ts", name: "TypeScript", ext: ".ts", color: "#3178C6", frameworks: [{ name: "Astro", level: 1, context: "personal" }], level: 2, context: "work" },
+  { id: "python", name: "Python", ext: ".py", color: "#5A9FD4", frameworks: [
+    { name: "Django", level: 1, context: "study" },
+    { name: "FastAPI", level: 1, context: "study" },
+  ], level: 2, context: "personal" },
+  { id: "cobol", name: "COBOL", ext: ".cbl", color: "#3DDC97", frameworks: [], level: 1, context: "study" },
+  // { id: "java", name: "Java", ext: ".java", color: "#F0883E", frameworks: [{ name: "Spring Boot", level: 1, context: "study" }], level: 1, context: "study" },
 ];
+
+/** Nomi dei framework di un linguaggio */
+export const frameworkNames = (language: Language) => language.frameworks.map((f) => f.name);
 
 export function getLanguage(id: string): Language {
   const language = LANGUAGES.find((l) => l.id === id);
