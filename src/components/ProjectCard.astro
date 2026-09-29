@@ -24,7 +24,7 @@ const languages = data.languages.map(getLanguage);
 const language = languages[0];
 const cover = data.screenshots[0];
 const number = index ? String(index).padStart(2, "0") : "";
-const label = [number, languages.map((l) => l.name).join(" + "), ...data.frameworks].filter(Boolean).join(" · ");
+const label = [languages.map((l) => l.name).join(" + "), ...data.frameworks].join(" · ");
 const external = { target: "_blank", rel: "noopener noreferrer" };
 ---
 
@@ -47,7 +47,7 @@ const external = { target: "_blank", rel: "noopener noreferrer" };
   </div>
   <div class="card__body">
     <div class="meta">
-      <span class="meta__lang">{label}</span>
+      <span class="meta__lang">{number && <span class="meta__n">{number} · </span>}{label}</span>
       {data.year && <span>{data.year}</span>}
     </div>
     <h3 class="card__title"><a class="card__link" href={projectUrl(project)}>{data.title}</a></h3>

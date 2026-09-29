@@ -93,7 +93,7 @@ const bioHtml = keywords.reduce(
         <h1 class="hero__name">{SITE.name}</h1>
         <p class="hero__role">{SITE.role[lang]}</p>
         <p class="hero__bio" set:html={bioHtml}></p>
-        <p class="hero__langs">{LANGUAGES.map((l) => l.name).join(" · ")}</p>
+        <p class="hero__langs">{LANGUAGES.map((l) => l.name).join("\u00a0· ")}</p>
         {SITE.available && <p class="badge"><span class="badge__dot"></span>{t("home.available")}</p>}
         <div class="actions">
           <a class="btn btn--primary" href="#progetti">{t("home.seeProjects")}<Icon name="arrow" /></a>
@@ -353,6 +353,7 @@ const bioHtml = keywords.reduce(
 
     tabs.hidden = false;
     panel.setAttribute("role", "tabpanel");
+    panel.classList.add("is-all");
 
     let current = "all";
 
@@ -384,9 +385,10 @@ const bioHtml = keywords.reduce(
         const selected = button.dataset.lang === lang;
         button.setAttribute("aria-selected", String(selected));
         button.tabIndex = selected ? 0 : -1;
-        if (selected) tabs.scrollTo({ left: button.offsetLeft - 16, behavior: reducedMotion ? "auto" : "smooth" });
       });
       panel.setAttribute("aria-labelledby", `tab-${lang}`);
+      // In "Tutti" le card di tutti i linguaggi stanno in un'unica griglia (vedi .is-all nel CSS)
+      panel.classList.toggle("is-all", lang === "all");
 
       groups.forEach((group) => {
         const filters = group.querySelector<HTMLElement>("[data-filters]");
