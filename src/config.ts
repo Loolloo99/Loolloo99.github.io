@@ -36,8 +36,8 @@ export const SITE = {
   initials: "LB",
   role: { it: "Sviluppatore software", en: "Software developer" } as Localized,
   bio: {
-    it: "Progetto e sviluppo applicazioni web e servizi backend, dai gestionali in Laravel alle API in FastAPI, fino a soluzioni IoT che collegano dispositivi e sensori al web.",
-    en: "I design and build web applications and backend services, from Laravel management systems to FastAPI APIs, all the way to IoT solutions that connect devices and sensors to the web.",
+    it: "Mi piace lavorare con tecnologie diverse e scegliere quella giusta per ogni problema. Al lavoro sviluppo applicazioni web, a casa costruisco app desktop, automazioni e qualche progetto IoT. Nel tempo che resta studio linguaggi e framework nuovi.",
+    en: "I enjoy working with different technologies and picking the right one for each problem. At work I build web applications; at home I make desktop apps, automation tools and the odd IoT project. Whatever time is left goes into studying new languages and frameworks.",
   } as Localized,
   location: { it: "Italia", en: "Italy" } as Localized,
   email: "lollo@bolzo.eu",
