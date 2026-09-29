@@ -2,7 +2,7 @@
 title: Piattaforma di prenotazione per ristorante
 languages: [php, js]
 frameworks: [Laravel, React]
-tags: [Inertia.js, Stripe]
+tags: [Inertia.js, Stripe, i18n]
 summary: Prenotazioni online per un ristorante, con un sito pubblico per i clienti e un back office riservato al personale.
 screenshots: []
 github: null
@@ -30,5 +30,6 @@ Una piattaforma web full-stack per le prenotazioni di un ristorante, divisa in d
 - **Laravel** per il backend
 - **React** con **Inertia.js** per l'interfaccia
 - **Stripe** per i pagamenti
+- **i18n** per il sito multilingua
 
 > Progetto privato: non sono riportati nomi, schermate né dettagli di implementazione.
