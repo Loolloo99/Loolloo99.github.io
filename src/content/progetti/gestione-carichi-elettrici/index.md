@@ -1,5 +1,5 @@
 ---
-title: Limitatore di consumo per prese Meross
+title: Gestione automatica dei carichi elettrici
 languages: [python]
 frameworks: []
 tags: [meross_iot, asyncio, IoT, smart plug]

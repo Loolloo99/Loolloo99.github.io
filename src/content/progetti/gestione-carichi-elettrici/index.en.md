@@ -1,5 +1,5 @@
 ---
-title: Power limiter for Meross plugs
+title: Automatic electrical load management
 summary: Monitors the consumption of Meross smart plugs in real time and, before the breaker trips, switches off the least important ones.
 ---
 
