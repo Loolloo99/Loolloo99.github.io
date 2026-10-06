@@ -45,7 +45,7 @@ export const SITE = {
   /** Indirizzo completo del profilo LinkedIn, oppure null per nascondere il pulsante */
   linkedin: null as string | null,
   /** File dentro public/ (es. "cv.pdf") oppure null per nascondere il pulsante */
-  cv: null as string | null,
+  cv: "CV_Lorenzo_Bolzoni.pdf" as string | null,
   /** Strumenti AI: compaiono nel profilo in alto e nella sezione "Stack". [] per nasconderle */
   ai: [
     { name: "Claude Code", context: "work" },
