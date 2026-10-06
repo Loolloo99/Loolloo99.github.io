@@ -64,7 +64,7 @@ const profile = profileCode({
 const social: { href: string; label: string; icon: IconName }[] = [];
 if (SITE.github) social.push({ href: SITE.github, label: "GitHub", icon: "github" });
 if (SITE.linkedin) social.push({ href: SITE.linkedin, label: "LinkedIn", icon: "linkedin" });
-if (SITE.cv) social.push({ href: /^https?:/.test(SITE.cv) ? SITE.cv : url(SITE.cv), label: t("home.cv"), icon: "file" });
+if (SITE.cv) social.push({ href: /^https?:/.test(SITE.cv) ? SITE.cv : url(SITE.cv), label: t("home.cv"), icon: "punchcard" });
 
 const external = { target: "_blank", rel: "noopener noreferrer" };
 

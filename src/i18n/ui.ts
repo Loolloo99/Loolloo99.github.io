@@ -45,7 +45,7 @@ const it = {
 
   "home.available": "Disponibile per nuovi progetti",
   "home.seeProjects": "Vedi i progetti",
-  "home.cv": "Curriculum",
+  "home.cv": "CV",
   "home.stackLead": "Linguaggi e framework in ordine di esperienza, più gli strumenti AI che uso ogni giorno.",
   "home.noProjects": "nessun progetto",
   "home.aiTools": "Strumenti AI",
@@ -143,7 +143,7 @@ const en: Record<UiKey, string> = {
 
   "home.available": "Available for new projects",
   "home.seeProjects": "See projects",
-  "home.cv": "Résumé",
+  "home.cv": "CV",
   "home.stackLead": "Languages and frameworks by experience, plus the AI tools I use every day.",
   "home.noProjects": "no projects",
   "home.aiTools": "AI tools",
