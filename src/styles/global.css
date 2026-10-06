@@ -454,6 +454,18 @@ code { font-family: var(--font-mono); font-size: .9em; }
   .hero__bio { font-size: var(--fs-base); line-height: 1.6; }
 }
 
+@media (max-width: 480px) {
+  /* I pulsanti non stanno su una riga: l'azione principale ne prende una intera, i link si dividono l'altra */
+  .hero .actions .btn { flex: 1; justify-content: center; }
+  .hero .actions .btn--primary { flex-basis: 100%; }
+}
+
+@media (max-width: 359px) {
+  /* Con GitHub, LinkedIn e CV la seconda riga è al limite: pulsanti più compatti */
+  .hero .actions { gap: 8px; }
+  .hero .actions .btn:not(.btn--primary) { gap: 6px; padding: 0 8px; }
+}
+
 /* ============================================================
    Sezioni
    ============================================================ */
