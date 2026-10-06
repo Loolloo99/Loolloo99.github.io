@@ -3,7 +3,7 @@ title: Gestione automatica dei carichi elettrici
 languages: [python]
 frameworks: []
 tags: [meross_iot, asyncio, IoT, smart plug]
-summary: Controlla in tempo reale il consumo delle prese smart Meross e, prima che salti la luce, spegne quelle meno importanti.
+summary: Controlla in tempo reale il consumo delle prese smart e, prima che salti la luce, spegne quelle meno importanti.
 screenshots: []
 github: null
 demo: null

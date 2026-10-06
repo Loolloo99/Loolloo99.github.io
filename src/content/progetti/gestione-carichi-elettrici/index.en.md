@@ -1,6 +1,6 @@
 ---
 title: Automatic electrical load management
-summary: Monitors the consumption of Meross smart plugs in real time and, before the breaker trips, switches off the least important ones.
+summary: Monitors the consumption of smart plugs in real time and, before the breaker trips, switches off the least important ones.
 ---
 
 A **Python** program that acts as a "smart circuit breaker" for **Meross** smart plugs. It reads in real time how much each plug is drawing and, if the total exceeds the configured limit, switches plugs off one at a time, starting from the least important, until consumption is back under the threshold. That way the meter doesn't cut power to the whole house.
