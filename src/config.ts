@@ -51,7 +51,7 @@ export const SITE = {
     { name: "Claude Code", context: "work" },
     { name: "Codex", context: "work" },
   ] as { name: string; context: Context }[],
-  /** Mostra il badge "Disponibile per nuovi progetti" */
+  /** Mostra il badge "Aperto a nuove opportunità" */
   available: true,
 };
 

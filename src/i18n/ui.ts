@@ -43,7 +43,7 @@ const it = {
   "inspect.exit": "Esci",
   "inspect.version": "versione",
 
-  "home.available": "Disponibile per nuovi progetti",
+  "home.available": "Aperto a nuove opportunità",
   "home.seeProjects": "Vedi i progetti",
   "home.cv": "CV",
   "home.stackLead": "Linguaggi e framework in ordine di esperienza, più gli strumenti AI che uso ogni giorno.",
@@ -72,8 +72,8 @@ const it = {
   "home.languages": "Linguaggi",
   "home.only": "Solo",
   "home.filterBy": "Filtra i progetti {lang} per framework",
-  "home.contactTitle": "Hai un progetto in mente?",
-  "home.contactLead": "Scrivimi per collaborazioni, proposte di lavoro o anche solo per parlare di codice.",
+  "home.contactTitle": "Restiamo in contatto",
+  "home.contactLead": "Scrivimi per proposte di lavoro, domande sui miei progetti o anche solo per parlare di codice.",
   "project.one": "progetto",
   "project.many": "progetti",
 
@@ -141,7 +141,7 @@ const en: Record<UiKey, string> = {
   "inspect.exit": "Exit",
   "inspect.version": "as",
 
-  "home.available": "Available for new projects",
+  "home.available": "Open to new opportunities",
   "home.seeProjects": "See projects",
   "home.cv": "CV",
   "home.stackLead": "Languages and frameworks by experience, plus the AI tools I use every day.",
@@ -170,8 +170,8 @@ const en: Record<UiKey, string> = {
   "home.languages": "Languages",
   "home.only": "Only",
   "home.filterBy": "Filter {lang} projects by framework",
-  "home.contactTitle": "Got a project in mind?",
-  "home.contactLead": "Write to me about collaborations, job offers or just to talk about code.",
+  "home.contactTitle": "Let's keep in touch",
+  "home.contactLead": "Write to me about job offers, questions about my projects or just to talk about code.",
   "project.one": "project",
   "project.many": "projects",
 
